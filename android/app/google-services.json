@@ -1,0 +1,68 @@
+{
+  "project_info": {
+    "project_number": "851556269464",
+    "firebase_url": "https://halal-social-prod-default-rtdb.firebaseio.com",
+    "project_id": "halal-social-prod",
+    "storage_bucket": "halal-social-prod.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:851556269464:android:25ef9be95f792c8bd5bfed",
+        "android_client_info": {
+          "package_name": "com.example.connectly_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBeUCE4rb-1mqu6F20Iagbe-cJJqj-doQs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:851556269464:android:48c378808a8575ead5bfed",
+        "android_client_info": {
+          "package_name": "com.example.mentor_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBeUCE4rb-1mqu6F20Iagbe-cJJqj-doQs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:851556269464:android:dc3a4ecde612b73ad5bfed",
+        "android_client_info": {
+          "package_name": "com.example.verygoodcore.halal_social.prod"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBeUCE4rb-1mqu6F20Iagbe-cJJqj-doQs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
