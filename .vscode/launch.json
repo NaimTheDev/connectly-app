@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flutter: iPhone SE (3rd generation) Simulator",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "FE9473AA-0DEE-4E67-81F7-73CD3E3B30B0",
+      "flutterMode": "debug"
+    },
+    {
+      "name": "Flutter: macOS Desktop",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "macos",
+      "flutterMode": "debug"
+    },
+    {
+      "name": "Flutter: Chrome Web",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "chrome",
+      "flutterMode": "debug"
+    }
+  ]
+}
