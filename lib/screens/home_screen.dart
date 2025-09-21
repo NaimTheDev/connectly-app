@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-// import 'package:go_router/go_router.dart'; // TODO: Use context.push when go_router is available
 import '../models/app_user.dart';
 import '../models/mentor.dart';
 import '../models/scheduled_call.dart';
+import '../providers/mentors_providers.dart';
+import '../providers/user_providers.dart';
+import '../providers/scheduled_calls_providers.dart';
 import '../providers/auth_providers.dart';
 import '../theme/theme.dart';
 import '../widgets/brand_chip.dart';
@@ -43,116 +45,139 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // TODO: Replace with real provider when available
-    // Wire up real providers
-    final AppUser? currentUser = ref.watch(appUserProvider);
-    final mentorsAsync = ref.watch(mentorsProvider);
-    final callsAsync = ref.watch(scheduledCallsProvider);
+    // Get current user UID from auth state
+    final firebaseUserAsync = ref.watch(firebaseUserStreamProvider);
+    return firebaseUserAsync.when(
+      data: (firebaseUser) {
+        final String uid = firebaseUser?.uid ?? '';
+        final userAsync = ref.watch(appUserProvider(uid));
+        final mentorsAsync = ref.watch(mentorsProvider);
+        final callsAsync = ref.watch(scheduledCallsProvider(uid));
 
-    final brand = Theme.of(context).extension<AppBrand>()!;
-    final textTheme = Theme.of(context).textTheme;
+        final brand = Theme.of(context).extension<AppBrand>()!;
+        final textTheme = Theme.of(context).textTheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Connectly', // TODO: Use brand/app name from ThemeExtension if available
-          style: textTheme.titleLarge?.copyWith(color: brand.brand),
-        ),
-        backgroundColor: brand.softGrey,
-      ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final isWide = constraints.maxWidth > 800;
-          final mentorColumns = constraints.maxWidth >= 1200
-              ? 4
-              : constraints.maxWidth >= 800
-              ? 3
-              : 2;
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _GreetingCard(
-                  user:
-                      currentUser ??
-                      AppUser(
-                        uid: '0',
-                        email: '',
-                        role: UserRole.mentee,
-                        name: 'User',
-                      ),
-                  brand: brand,
-                ),
-                Spacers.h16,
-                Row(
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(
+              'Connectly',
+              style: textTheme.titleLarge?.copyWith(color: brand.brand),
+            ),
+            backgroundColor: brand.softGrey,
+          ),
+          body: LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 800;
+              final mentorColumns = constraints.maxWidth >= 1200
+                  ? 4
+                  : constraints.maxWidth >= 800
+                  ? 3
+                  : 2;
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const BrandChip('Flutter'),
-                    Spacers.w8,
-                    const BrandChip('Mentorship'),
-                    Spacers.w8,
-                    const BrandChip('Community'),
+                    userAsync.when(
+                      data: (currentUser) => _GreetingCard(
+                        user:
+                            currentUser ??
+                            AppUser(
+                              uid: '0',
+                              email: '',
+                              role: UserRole.mentee,
+                              name: 'User',
+                            ),
+                        brand: brand,
+                      ),
+                      loading: () => const _LoadingOrEmpty(
+                        isLoading: true,
+                        emptyMessage: '',
+                      ),
+                      error: (err, _) => _LoadingOrEmpty(
+                        isLoading: false,
+                        emptyMessage: 'Failed to load user.',
+                      ),
+                    ),
+                    Spacers.h16,
+                    Row(
+                      children: [
+                        const BrandChip('Flutter'),
+                        Spacers.w8,
+                        const BrandChip('Mentorship'),
+                        Spacers.w8,
+                        const BrandChip('Community'),
+                      ],
+                    ),
+                    Spacers.h24,
+                    Text('Mentors', style: textTheme.titleMedium),
+                    Spacers.h8,
+                    mentorsAsync.when(
+                      data: (mentors) => mentors.isEmpty
+                          ? const _LoadingOrEmpty(
+                              isLoading: false,
+                              emptyMessage: 'No mentors available.',
+                            )
+                          : GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: mentorColumns,
+                                    mainAxisSpacing: 16,
+                                    crossAxisSpacing: 16,
+                                    childAspectRatio: isWide ? 2.5 : 1.5,
+                                  ),
+                              itemCount: mentors.length,
+                              itemBuilder: (context, i) =>
+                                  _MentorCard(mentor: mentors[i]),
+                            ),
+                      loading: () => const _LoadingOrEmpty(
+                        isLoading: true,
+                        emptyMessage: '',
+                      ),
+                      error: (err, _) => _LoadingOrEmpty(
+                        isLoading: false,
+                        emptyMessage: 'Failed to load mentors.',
+                      ),
+                    ),
+                    Spacers.h24,
+                    Text('Upcoming Calls', style: textTheme.titleMedium),
+                    Spacers.h8,
+                    callsAsync.when(
+                      data: (calls) => calls.isEmpty
+                          ? const _LoadingOrEmpty(
+                              isLoading: false,
+                              emptyMessage: 'No upcoming calls.',
+                            )
+                          : ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: calls.length,
+                              separatorBuilder: (_, __) => Spacers.h8,
+                              itemBuilder: (context, i) =>
+                                  _CallTile(call: calls[i]),
+                            ),
+                      loading: () => const _LoadingOrEmpty(
+                        isLoading: true,
+                        emptyMessage: '',
+                      ),
+                      error: (err, _) => _LoadingOrEmpty(
+                        isLoading: false,
+                        emptyMessage: 'Failed to load calls.',
+                      ),
+                    ),
                   ],
                 ),
-                Spacers.h24,
-                Text('Mentors', style: textTheme.titleMedium),
-                Spacers.h8,
-                mentorsAsync.when(
-                  data: (mentors) => mentors.isEmpty
-                      ? const _LoadingOrEmpty(
-                          isLoading: false,
-                          emptyMessage: 'No mentors available.',
-                        )
-                      : GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: mentorColumns,
-                                mainAxisSpacing: 16,
-                                crossAxisSpacing: 16,
-                                childAspectRatio: isWide ? 2.5 : 1.5,
-                              ),
-                          itemCount: mentors.length,
-                          itemBuilder: (context, i) =>
-                              _MentorCard(mentor: mentors[i]),
-                        ),
-                  loading: () =>
-                      const _LoadingOrEmpty(isLoading: true, emptyMessage: ''),
-                  error: (err, _) => _LoadingOrEmpty(
-                    isLoading: false,
-                    emptyMessage: 'Failed to load mentors.',
-                  ),
-                ),
-                Spacers.h24,
-                Text('Upcoming Calls', style: textTheme.titleMedium),
-                Spacers.h8,
-                callsAsync.when(
-                  data: (calls) => calls.isEmpty
-                      ? const _LoadingOrEmpty(
-                          isLoading: false,
-                          emptyMessage: 'No upcoming calls.',
-                        )
-                      : ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: calls.length,
-                          separatorBuilder: (_, __) => Spacers.h8,
-                          itemBuilder: (context, i) =>
-                              _CallTile(call: calls[i]),
-                        ),
-                  loading: () =>
-                      const _LoadingOrEmpty(isLoading: true, emptyMessage: ''),
-                  error: (err, _) => _LoadingOrEmpty(
-                    isLoading: false,
-                    emptyMessage: 'Failed to load calls.',
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+              );
+            },
+          ),
+        );
+      },
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (err, _) =>
+          Scaffold(body: Center(child: Text('Auth error: $err'))),
     );
   }
 }
