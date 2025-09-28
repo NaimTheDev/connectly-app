@@ -73,31 +73,7 @@ class HomeScreen extends ConsumerWidget {
                       ),
                     ),
                     Spacers.h24,
-                    // Search Bar
-                    Container(
-                      decoration: BoxDecoration(
-                        color: brand.softGrey.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: TextField(
-                        decoration: InputDecoration(
-                          hintText: 'Find Mentors, Skills...',
-                          prefixIcon: Icon(
-                            Icons.search,
-                            color: brand.graphite.withValues(alpha: 0.6),
-                          ),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          hintStyle: TextStyle(
-                            color: brand.graphite.withOpacity(0.6),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Spacers.h24,
+
                     // Featured Mentors Section
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
