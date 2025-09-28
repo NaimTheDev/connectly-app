@@ -1,0 +1,19 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      // Boot the *latest available iPhone* (handles names with parentheses)
+      "label": "boot-latest-iphone",
+      "type": "shell",
+      "command": "UDID=$(xcrun simctl list devices available | grep -E '^[[:space:]]*iPhone ' | sed -nE 's/.*\\(([0-9A-F-]{36})\\).*/\\1/p' | tail -n 1); if [ -n \"$UDID\" ]; then xcrun simctl boot \"$UDID\" || true; else echo 'No iPhone simulator found'; fi; open -a Simulator",
+      "problemMatcher": []
+    },
+    {
+      // Boot iPhone SE (3rd generation) by resolving its *UUID* first (handles duplicates)
+      "label": "boot-iphone-se-3",
+      "type": "shell",
+      "command": "UDID=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone SE \\(3rd generation\\)/{for(i=NF;i>=1;i--) if ($i ~ /^[0-9A-F-]{36}$/){print $i; exit}}'); if [ -n \"$UDID\" ]; then xcrun simctl boot \"$UDID\" || true; else echo 'iPhone SE (3rd generation) not found'; fi; open -a Simulator",
+      "problemMatcher": []
+    }
+  ]
+}

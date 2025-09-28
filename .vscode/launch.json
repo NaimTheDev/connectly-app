@@ -2,11 +2,24 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Flutter: iPhone SE (3rd generation) Simulator",
+      "name": "Flutter: iPhone SE (3rd gen)",
       "request": "launch",
       "type": "dart",
-      "deviceId": "FE9473AA-0DEE-4E67-81F7-73CD3E3B30B0",
+      "deviceId": "7CFD21B2-70E4-4E4D-9AB3-363BBA7B42F0",
       "flutterMode": "debug"
+    },
+    {
+      "name": "Flutter: iOS (latest simulator, DEV)",
+      "type": "dart",
+      "request": "launch",
+      "preLaunchTask": "boot-latest-iphone",
+      "deviceId": "ios",
+      "flutterMode": "debug",
+      "args": [
+        "--flavor", "dev",
+        "--dart-define=FLAVOR=dev",
+        "--target", "lib/main_dev.dart"
+      ]
     },
     {
       "name": "Flutter: macOS Desktop",
@@ -22,5 +35,8 @@
       "deviceId": "chrome",
       "flutterMode": "debug"
     }
+  ],
+  "compounds": [
+    { "name": "iOS Boot + Debug (Latest Simulator)", "configurations": ["Flutter: iOS (latest simulator, DEV)"] }
   ]
 }

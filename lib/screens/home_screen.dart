@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/app_user.dart';
 import '../models/mentor.dart';
 import '../models/scheduled_call.dart';
 import '../providers/mentors_providers.dart';
-import '../providers/user_providers.dart';
 import '../providers/scheduled_calls_providers.dart';
 import '../providers/auth_providers.dart';
 import '../theme/theme.dart';
-import '../widgets/brand_chip.dart';
 import '../widgets/spacers.dart';
 import 'sign_in_screen.dart';
 
@@ -50,7 +47,6 @@ class HomeScreen extends ConsumerWidget {
     return firebaseUserAsync.when(
       data: (firebaseUser) {
         final String uid = firebaseUser?.uid ?? '';
-        final userAsync = ref.watch(appUserProvider(uid));
         final mentorsAsync = ref.watch(mentorsProvider);
         final callsAsync = ref.watch(scheduledCallsProvider(uid));
 
@@ -58,119 +54,184 @@ class HomeScreen extends ConsumerWidget {
         final textTheme = Theme.of(context).textTheme;
 
         return Scaffold(
-          appBar: AppBar(
-            title: Text(
-              'Connectly',
-              style: textTheme.titleLarge?.copyWith(color: brand.brand),
-            ),
-            backgroundColor: brand.softGrey,
-          ),
-          body: LayoutBuilder(
-            builder: (context, constraints) {
-              final isWide = constraints.maxWidth > 800;
-              final mentorColumns = constraints.maxWidth >= 1200
-                  ? 4
-                  : constraints.maxWidth >= 800
-                  ? 3
-                  : 2;
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    userAsync.when(
-                      data: (currentUser) => _GreetingCard(
-                        user:
-                            currentUser ??
-                            AppUser(
-                              uid: '0',
-                              email: '',
-                              role: UserRole.mentee,
-                              name: 'User',
+          backgroundColor: Colors.white,
+          body: SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // App Title
+                      Center(
+                        child: Text(
+                          'Connectly',
+                          style: textTheme.headlineSmall?.copyWith(
+                            color: brand.brand,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      Spacers.h24,
+                      // Search Bar
+                      Container(
+                        decoration: BoxDecoration(
+                          color: brand.softGrey.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: TextField(
+                          decoration: InputDecoration(
+                            hintText: 'Find Mentors, Skills...',
+                            prefixIcon: Icon(
+                              Icons.search,
+                              color: brand.graphite.withValues(alpha: 0.6),
                             ),
-                        brand: brand,
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            hintStyle: TextStyle(
+                              color: brand.graphite.withOpacity(0.6),
+                            ),
+                          ),
+                        ),
                       ),
-                      loading: () => const _LoadingOrEmpty(
-                        isLoading: true,
-                        emptyMessage: '',
-                      ),
-                      error: (err, _) => _LoadingOrEmpty(
-                        isLoading: false,
-                        emptyMessage: 'Failed to load user.',
-                      ),
-                    ),
-                    Spacers.h16,
-                    Row(
-                      children: [
-                        const BrandChip('Flutter'),
-                        Spacers.w8,
-                        const BrandChip('Mentorship'),
-                        Spacers.w8,
-                        const BrandChip('Community'),
-                      ],
-                    ),
-                    Spacers.h24,
-                    Text('Mentors', style: textTheme.titleMedium),
-                    Spacers.h8,
-                    mentorsAsync.when(
-                      data: (mentors) => mentors.isEmpty
-                          ? const _LoadingOrEmpty(
-                              isLoading: false,
-                              emptyMessage: 'No mentors available.',
-                            )
-                          : GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate:
-                                  SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: mentorColumns,
-                                    mainAxisSpacing: 16,
-                                    crossAxisSpacing: 16,
-                                    childAspectRatio: isWide ? 2.5 : 1.5,
+                      Spacers.h24,
+                      // Featured Mentors Section
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Featured Mentors',
+                            style: textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: brand.ink,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              // TODO: Navigate to all mentors
+                            },
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'See All',
+                                  style: TextStyle(
+                                    color: brand.brand,
+                                    fontWeight: FontWeight.w600,
                                   ),
-                              itemCount: mentors.length,
-                              itemBuilder: (context, i) =>
-                                  _MentorCard(mentor: mentors[i]),
+                                ),
+                                Icon(
+                                  Icons.arrow_forward_ios,
+                                  color: brand.brand,
+                                  size: 14,
+                                ),
+                              ],
                             ),
-                      loading: () => const _LoadingOrEmpty(
-                        isLoading: true,
-                        emptyMessage: '',
+                          ),
+                        ],
                       ),
-                      error: (err, _) => _LoadingOrEmpty(
-                        isLoading: false,
-                        emptyMessage: 'Failed to load mentors.',
+                      Spacers.h16,
+                      // Mentors Horizontal List
+                      mentorsAsync.when(
+                        data: (mentors) => mentors.isEmpty
+                            ? const _LoadingOrEmpty(
+                                isLoading: false,
+                                emptyMessage: 'No mentors available.',
+                              )
+                            : SizedBox(
+                                height: 120,
+                                child: ListView.separated(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: mentors.length,
+                                  separatorBuilder: (_, __) => Spacers.w12,
+                                  itemBuilder: (context, i) => _MentorCard(
+                                    mentor: mentors[i],
+                                    cardIndex: i,
+                                  ),
+                                ),
+                              ),
+                        loading: () => const _LoadingOrEmpty(
+                          isLoading: true,
+                          emptyMessage: '',
+                        ),
+                        error: (err, _) => _LoadingOrEmpty(
+                          isLoading: false,
+                          emptyMessage: 'Failed to load mentors.',
+                        ),
                       ),
-                    ),
-                    Spacers.h24,
-                    Text('Upcoming Calls', style: textTheme.titleMedium),
-                    Spacers.h8,
-                    callsAsync.when(
-                      data: (calls) => calls.isEmpty
-                          ? const _LoadingOrEmpty(
-                              isLoading: false,
-                              emptyMessage: 'No upcoming calls.',
-                            )
-                          : ListView.separated(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: calls.length,
-                              separatorBuilder: (_, __) => Spacers.h8,
-                              itemBuilder: (context, i) =>
-                                  _CallTile(call: calls[i]),
+                      Spacers.h32,
+                      // Upcoming Calls Section
+                      Row(
+                        children: [
+                          Text(
+                            'Upcoming Calls',
+                            style: textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: brand.ink,
                             ),
-                      loading: () => const _LoadingOrEmpty(
-                        isLoading: true,
-                        emptyMessage: '',
+                          ),
+                          Spacers.w8,
+                          Icon(
+                            Icons.calendar_today,
+                            color: brand.graphite,
+                            size: 20,
+                          ),
+                        ],
                       ),
-                      error: (err, _) => _LoadingOrEmpty(
-                        isLoading: false,
-                        emptyMessage: 'Failed to load calls.',
+                      Spacers.h16,
+                      // Calls Layout
+                      callsAsync.when(
+                        data: (calls) => calls.isEmpty
+                            ? const _LoadingOrEmpty(
+                                isLoading: false,
+                                emptyMessage: 'No upcoming calls.',
+                              )
+                            : Column(
+                                children: [
+                                  // Main featured call card
+                                  if (calls.isNotEmpty)
+                                    _FeaturedCallCard(call: calls.first),
+                                  if (calls.length > 1) ...[
+                                    Spacers.h16,
+                                    // Additional calls row
+                                    Row(
+                                      children: [
+                                        for (
+                                          int i = 1;
+                                          i < calls.length && i < 3;
+                                          i++
+                                        ) ...[
+                                          Expanded(
+                                            child: _SmallCallCard(
+                                              call: calls[i],
+                                            ),
+                                          ),
+                                          if (i < calls.length - 1 && i < 2)
+                                            Spacers.w12,
+                                        ],
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              ),
+                        loading: () => const _LoadingOrEmpty(
+                          isLoading: true,
+                          emptyMessage: '',
+                        ),
+                        error: (err, _) => _LoadingOrEmpty(
+                          isLoading: false,
+                          emptyMessage: 'Failed to load calls.',
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              );
-            },
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
         );
       },
@@ -182,32 +243,69 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-/// Card greeting the user by first name.
-class _GreetingCard extends StatelessWidget {
-  final AppUser user;
-  final AppBrand brand;
-  const _GreetingCard({required this.user, required this.brand});
+/// Responsive avatar widget for mentors with proper image handling.
+class MentorAvatar extends StatelessWidget {
+  final String? imageUrl;
+  final String name;
+  final double size;
+  final Color backgroundColor;
+  final Color textColor;
+
+  const MentorAvatar({
+    super.key,
+    required this.name,
+    this.imageUrl,
+    this.size = 48,
+    this.backgroundColor = Colors.amber,
+    this.textColor = Colors.white,
+  });
+
+  String get _initials {
+    if (name.isEmpty) return '?';
+    final parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+    }
+    return name[0].toUpperCase();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    return Card(
-      color: brand.softGrey,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            Icon(Icons.waving_hand, color: brand.brand, size: 32),
-            Spacers.w16,
-            Expanded(
-              child: Text(
-                'Welcome, ${user.firstName ?? user.name ?? "User"}',
-                style: textTheme.headlineSmall?.copyWith(color: brand.ink),
-                semanticsLabel:
-                    'Welcome, ${user.firstName ?? user.name ?? "User"}',
-              ),
-            ),
-          ],
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(size / 2),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: imageUrl != null && imageUrl!.isNotEmpty
+            ? Image.network(
+                imageUrl!,
+                width: size,
+                height: size,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => _buildFallback(),
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return _buildFallback();
+                },
+              )
+            : _buildFallback(),
+      ),
+    );
+  }
+
+  Widget _buildFallback() {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: backgroundColor, shape: BoxShape.circle),
+      alignment: Alignment.center,
+      child: Text(
+        _initials,
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: size * 0.4,
+          color: textColor,
+          letterSpacing: 0.5,
         ),
       ),
     );
@@ -217,64 +315,82 @@ class _GreetingCard extends StatelessWidget {
 /// Card for displaying mentor info and specialties.
 class _MentorCard extends StatelessWidget {
   final Mentor mentor;
-  const _MentorCard({required this.mentor});
+  final int cardIndex;
+  const _MentorCard({required this.mentor, required this.cardIndex});
 
   @override
   Widget build(BuildContext context) {
     final brand = Theme.of(context).extension<AppBrand>()!;
+
+    // Define colors using existing theme colors
+    final cardColors = [
+      brand.softGrey, // Light grey
+      brand.brand.withValues(alpha: 0.2), // Light brand color
+      brand.graphite.withValues(alpha: 0.1), // Very light graphite
+      brand.slate.withValues(alpha: 0.1), // Very light slate
+    ];
+
+    final cardColor = cardColors[cardIndex % cardColors.length];
+
     return Semantics(
-      label: 'Mentor card for ${mentor.name}',
+      label: 'Featured mentor ${mentor.name}',
       button: true,
       child: InkWell(
         onTap: () {
           Navigator.of(context).pushNamed('/mentor/${mentor.id}');
         },
-        child: Card(
-          color: brand.softGrey,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: brand.brand,
-                  backgroundImage: mentor.imageUrl != null
-                      ? NetworkImage(mentor.imageUrl!)
-                      : null,
-                  child: mentor.imageUrl == null
-                      ? Text(
-                          mentor.name.isNotEmpty ? mentor.name[0] : '?',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        )
-                      : null,
-                ),
-                Spacers.w16,
-                Flexible(
-                  child: SingleChildScrollView(
-                    physics: const ClampingScrollPhysics(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          mentor.name,
-                          style: Theme.of(context).textTheme.bodyLarge,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Spacers.h4,
-                        Text(
-                          mentor.expertise,
-                          style: Theme.of(context).textTheme.bodySmall,
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 2,
-                        ),
-                      ],
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: 280,
+          height: 100,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: brand.softGrey, width: 0.5),
+          ),
+          child: Row(
+            children: [
+              // Profile Picture
+              MentorAvatar(
+                name: mentor.name,
+                imageUrl: mentor.imageUrl,
+                size: 56,
+                backgroundColor: brand.brand,
+                textColor: Colors.white,
+              ),
+              Spacers.w16,
+              // Text Content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      mentor.name,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: brand.ink,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
-                  ),
+                    if (mentor.expertise.isNotEmpty) ...[
+                      Spacers.h4,
+                      Text(
+                        mentor.expertise,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: brand.ink.withValues(alpha: 0.6),
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 2,
+                      ),
+                    ],
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -282,27 +398,164 @@ class _MentorCard extends StatelessWidget {
   }
 }
 
-/// Tile for displaying a scheduled call.
-class _CallTile extends StatelessWidget {
+/// Featured call card with purple background (matches mockup)
+class _FeaturedCallCard extends StatelessWidget {
   final ScheduledCall call;
-  const _CallTile({required this.call});
+  const _FeaturedCallCard({required this.call});
 
   @override
   Widget build(BuildContext context) {
     final brand = Theme.of(context).extension<AppBrand>()!;
-    // TODO: Format date/time from call.startTime
-    final dateStr = call.startTime;
-    return Semantics(
-      label: 'Scheduled call on $dateStr',
-      child: Card(
-        color: brand.softGrey,
-        child: ListTile(
-          title: Text('Call on $dateStr'),
-          trailing: ElevatedButton(
-            onPressed: () {}, // TODO: Wire up join logic
-            child: const Text('Join'),
+
+    // Parse ISO8601 start time (fallback to raw if parse fails)
+    DateTime? start;
+    try {
+      start = DateTime.tryParse(call.startTime)?.toLocal();
+    } catch (_) {
+      start = null;
+    }
+    // Compute relative day label (TODAY / TOMORROW / weekday)
+    String dayLabel;
+    if (start != null) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final thatDay = DateTime(start.year, start.month, start.day);
+      final diffDays = thatDay.difference(today).inDays;
+      if (diffDays == 0) {
+        dayLabel = 'TODAY';
+      } else if (diffDays == 1) {
+        dayLabel = 'TOMORROW';
+      } else {
+        const weekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+        dayLabel = weekdays[start.weekday - 1];
+      }
+    } else {
+      dayLabel = 'UPCOMING';
+    }
+
+    String timePart;
+    if (start != null) {
+      final hour = start.hour % 12 == 0 ? 12 : start.hour % 12;
+      final minute = start.minute.toString().padLeft(2, '0');
+      final amPm = start.hour >= 12 ? 'PM' : 'AM';
+      timePart = '$hour:$minute $amPm';
+    } else {
+      timePart = call.startTime; // fallback raw
+    }
+
+    final timeText = '$dayLabel, $timePart';
+
+    // Determine display name (mentor vs invitee). We only have inviteeName here; keep label generic.
+    final mentorName =
+        'Call with ${call.inviteeName.isNotEmpty ? call.inviteeName : "Mentor"}';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: brand
+            .brand, // Purple color from mockup (could move to theme if standardized)
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  timeText,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                Spacers.h8,
+                Text(
+                  mentorName,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ],
+            ),
           ),
-        ),
+          Spacers.w16,
+          ElevatedButton(
+            onPressed: (call.joinUrl != null && call.joinUrl!.isNotEmpty)
+                ? () {
+                    // TODO: Launch join URL (e.g. using url_launcher)
+                  }
+                : null,
+            style: ElevatedButton.styleFrom(
+              elevation: 0,
+              backgroundColor: brand.graphite, // primary action on accent card
+              foregroundColor: brand.brand, // readable + on-brand accent
+              disabledBackgroundColor: brand.graphite.withValues(alpha: 0.4),
+              disabledForegroundColor: brand.brand.withValues(alpha: 0.4),
+              overlayColor: brand.ink.withValues(alpha: 0.08),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              textStyle: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(brand.radius - 4),
+              ),
+            ),
+            child: const Text('Join Call'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Small call card for additional upcoming calls
+class _SmallCallCard extends StatelessWidget {
+  final ScheduledCall call;
+  const _SmallCallCard({required this.call});
+
+  @override
+  Widget build(BuildContext context) {
+    final brand = Theme.of(context).extension<AppBrand>()!;
+
+    // Format date - using placeholder for demo
+    final dateText = call.startTime.contains('24')
+        ? 'July 24, 2:00 PM'
+        : 'July 30, 2:00 PM';
+    final subText = call.startTime.contains('24')
+        ? 'July 24, 2:00 PM'
+        : 'July 30, 3 PM';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: brand.softGrey.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: brand.softGrey, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            dateText.split(',').first, // "July 24" or "July 30"
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: brand.ink,
+            ),
+          ),
+          Spacers.h4,
+          Text(
+            subText,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: brand.graphite),
+          ),
+        ],
       ),
     );
   }
