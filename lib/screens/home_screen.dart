@@ -7,6 +7,7 @@ import '../providers/scheduled_calls_providers.dart';
 import '../providers/auth_providers.dart';
 import '../theme/theme.dart';
 import '../widgets/spacers.dart';
+import '../widgets/main_navigation_wrapper.dart';
 import 'sign_in_screen.dart';
 
 /// AuthGate widget that uses isSignedInProvider to show HomeScreen or SignInScreen based on auth state.
@@ -20,8 +21,8 @@ class AuthGate extends ConsumerWidget {
     return isSignedInAsync.when(
       data: (signedIn) {
         if (signedIn) {
-          // User is signed in, show HomeScreen
-          return const HomeScreen();
+          // User is signed in, show MainNavigationWrapper
+          return const MainNavigationWrapper();
         } else {
           // Not signed in, show SignInScreen
           return const SignInScreen();
@@ -53,185 +54,180 @@ class HomeScreen extends ConsumerWidget {
         final brand = Theme.of(context).extension<AppBrand>()!;
         final textTheme = Theme.of(context).textTheme;
 
-        return Scaffold(
-          backgroundColor: Colors.white,
-          body: SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // App Title
-                      Center(
-                        child: Text(
-                          'Connectly',
-                          style: textTheme.headlineSmall?.copyWith(
-                            color: brand.brand,
+        return SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // App Title
+                    Center(
+                      child: Text(
+                        'Connectly',
+                        style: textTheme.headlineSmall?.copyWith(
+                          color: brand.brand,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Spacers.h24,
+                    // Search Bar
+                    Container(
+                      decoration: BoxDecoration(
+                        color: brand.softGrey.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: TextField(
+                        decoration: InputDecoration(
+                          hintText: 'Find Mentors, Skills...',
+                          prefixIcon: Icon(
+                            Icons.search,
+                            color: brand.graphite.withValues(alpha: 0.6),
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          hintStyle: TextStyle(
+                            color: brand.graphite.withOpacity(0.6),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Spacers.h24,
+                    // Featured Mentors Section
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Featured Mentors',
+                          style: textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
+                            color: brand.ink,
                           ),
                         ),
-                      ),
-                      Spacers.h24,
-                      // Search Bar
-                      Container(
-                        decoration: BoxDecoration(
-                          color: brand.softGrey.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: TextField(
-                          decoration: InputDecoration(
-                            hintText: 'Find Mentors, Skills...',
-                            prefixIcon: Icon(
-                              Icons.search,
-                              color: brand.graphite.withValues(alpha: 0.6),
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            hintStyle: TextStyle(
-                              color: brand.graphite.withOpacity(0.6),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Spacers.h24,
-                      // Featured Mentors Section
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Featured Mentors',
-                            style: textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: brand.ink,
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              // TODO: Navigate to all mentors
-                            },
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'See All',
-                                  style: TextStyle(
-                                    color: brand.brand,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                Icon(
-                                  Icons.arrow_forward_ios,
+                        TextButton(
+                          onPressed: () {
+                            // TODO: Navigate to all mentors
+                          },
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'See All',
+                                style: TextStyle(
                                   color: brand.brand,
-                                  size: 14,
+                                  fontWeight: FontWeight.w600,
                                 ),
+                              ),
+                              Icon(
+                                Icons.arrow_forward_ios,
+                                color: brand.brand,
+                                size: 14,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    Spacers.h16,
+                    // Mentors Horizontal List
+                    mentorsAsync.when(
+                      data: (mentors) => mentors.isEmpty
+                          ? const _LoadingOrEmpty(
+                              isLoading: false,
+                              emptyMessage: 'No mentors available.',
+                            )
+                          : SizedBox(
+                              height: 120,
+                              child: ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: mentors.length,
+                                separatorBuilder: (_, __) => Spacers.w12,
+                                itemBuilder: (context, i) => _MentorCard(
+                                  mentor: mentors[i],
+                                  cardIndex: i,
+                                ),
+                              ),
+                            ),
+                      loading: () => const _LoadingOrEmpty(
+                        isLoading: true,
+                        emptyMessage: '',
+                      ),
+                      error: (err, _) => _LoadingOrEmpty(
+                        isLoading: false,
+                        emptyMessage: 'Failed to load mentors.',
+                      ),
+                    ),
+                    Spacers.h32,
+                    // Upcoming Calls Section
+                    Row(
+                      children: [
+                        Text(
+                          'Upcoming Calls',
+                          style: textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: brand.ink,
+                          ),
+                        ),
+                        Spacers.w8,
+                        Icon(
+                          Icons.calendar_today,
+                          color: brand.graphite,
+                          size: 20,
+                        ),
+                      ],
+                    ),
+                    Spacers.h16,
+                    // Calls Layout
+                    callsAsync.when(
+                      data: (calls) => calls.isEmpty
+                          ? const _LoadingOrEmpty(
+                              isLoading: false,
+                              emptyMessage: 'No upcoming calls.',
+                            )
+                          : Column(
+                              children: [
+                                // Main featured call card
+                                if (calls.isNotEmpty)
+                                  _FeaturedCallCard(call: calls.first),
+                                if (calls.length > 1) ...[
+                                  Spacers.h16,
+                                  // Additional calls row
+                                  Row(
+                                    children: [
+                                      for (
+                                        int i = 1;
+                                        i < calls.length && i < 3;
+                                        i++
+                                      ) ...[
+                                        Expanded(
+                                          child: _SmallCallCard(call: calls[i]),
+                                        ),
+                                        if (i < calls.length - 1 && i < 2)
+                                          Spacers.w12,
+                                      ],
+                                    ],
+                                  ),
+                                ],
                               ],
                             ),
-                          ),
-                        ],
+                      loading: () => const _LoadingOrEmpty(
+                        isLoading: true,
+                        emptyMessage: '',
                       ),
-                      Spacers.h16,
-                      // Mentors Horizontal List
-                      mentorsAsync.when(
-                        data: (mentors) => mentors.isEmpty
-                            ? const _LoadingOrEmpty(
-                                isLoading: false,
-                                emptyMessage: 'No mentors available.',
-                              )
-                            : SizedBox(
-                                height: 120,
-                                child: ListView.separated(
-                                  scrollDirection: Axis.horizontal,
-                                  itemCount: mentors.length,
-                                  separatorBuilder: (_, __) => Spacers.w12,
-                                  itemBuilder: (context, i) => _MentorCard(
-                                    mentor: mentors[i],
-                                    cardIndex: i,
-                                  ),
-                                ),
-                              ),
-                        loading: () => const _LoadingOrEmpty(
-                          isLoading: true,
-                          emptyMessage: '',
-                        ),
-                        error: (err, _) => _LoadingOrEmpty(
-                          isLoading: false,
-                          emptyMessage: 'Failed to load mentors.',
-                        ),
+                      error: (err, _) => _LoadingOrEmpty(
+                        isLoading: false,
+                        emptyMessage: 'Failed to load calls.',
                       ),
-                      Spacers.h32,
-                      // Upcoming Calls Section
-                      Row(
-                        children: [
-                          Text(
-                            'Upcoming Calls',
-                            style: textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: brand.ink,
-                            ),
-                          ),
-                          Spacers.w8,
-                          Icon(
-                            Icons.calendar_today,
-                            color: brand.graphite,
-                            size: 20,
-                          ),
-                        ],
-                      ),
-                      Spacers.h16,
-                      // Calls Layout
-                      callsAsync.when(
-                        data: (calls) => calls.isEmpty
-                            ? const _LoadingOrEmpty(
-                                isLoading: false,
-                                emptyMessage: 'No upcoming calls.',
-                              )
-                            : Column(
-                                children: [
-                                  // Main featured call card
-                                  if (calls.isNotEmpty)
-                                    _FeaturedCallCard(call: calls.first),
-                                  if (calls.length > 1) ...[
-                                    Spacers.h16,
-                                    // Additional calls row
-                                    Row(
-                                      children: [
-                                        for (
-                                          int i = 1;
-                                          i < calls.length && i < 3;
-                                          i++
-                                        ) ...[
-                                          Expanded(
-                                            child: _SmallCallCard(
-                                              call: calls[i],
-                                            ),
-                                          ),
-                                          if (i < calls.length - 1 && i < 2)
-                                            Spacers.w12,
-                                        ],
-                                      ],
-                                    ),
-                                  ],
-                                ],
-                              ),
-                        loading: () => const _LoadingOrEmpty(
-                          isLoading: true,
-                          emptyMessage: '',
-                        ),
-                        error: (err, _) => _LoadingOrEmpty(
-                          isLoading: false,
-                          emptyMessage: 'Failed to load calls.',
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         );
       },
