@@ -41,6 +41,29 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     }
   }
 
+  Future<void> _signUpWithGoogle() async {
+    if (_role == null) {
+      setState(() => _error = 'Please select a role first');
+      return;
+    }
+
+    setState(() => _loading = true);
+    final authService = ref.read(authServiceProvider);
+    try {
+      final (user, isNew) = await authService.signUpWithGoogle(_role!);
+      setState(() => _error = null);
+      if (mounted) {
+        // Let AuthGate handle routing based on onboarding status
+        // Just pop back to let the auth state change trigger proper routing
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -84,6 +107,23 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 child: _loading
                     ? const CircularProgressIndicator()
                     : const Text('Sign Up'),
+              ),
+              const SizedBox(height: 16),
+              const Row(
+                children: [
+                  Expanded(child: Divider()),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text('OR'),
+                  ),
+                  Expanded(child: Divider()),
+                ],
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: _loading || _role == null ? null : _signUpWithGoogle,
+                icon: const Icon(Icons.login),
+                label: const Text('Sign Up with Google'),
               ),
             ],
           ),

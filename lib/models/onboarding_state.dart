@@ -4,6 +4,7 @@ import '../models/service_type.dart';
 /// Represents the current state of user onboarding
 class OnboardingState {
   final String userId;
+  final String? email;
   final UserRole? selectedRole;
   final String? firstName;
   final String? lastName;
@@ -23,6 +24,7 @@ class OnboardingState {
 
   const OnboardingState({
     required this.userId,
+    this.email,
     this.selectedRole,
     this.firstName,
     this.lastName,
@@ -42,14 +44,15 @@ class OnboardingState {
   });
 
   /// Create initial onboarding state for a user
-  factory OnboardingState.initial(String userId) {
-    return OnboardingState(userId: userId);
+  factory OnboardingState.initial(String userId, {String? email}) {
+    return OnboardingState(userId: userId, email: email);
   }
 
   /// Create from Firestore map
   factory OnboardingState.fromMap(String userId, Map<String, dynamic> data) {
     return OnboardingState(
       userId: userId,
+      email: data['email'] as String?,
       selectedRole: data['selectedRole'] != null
           ? (data['selectedRole'] == 'mentor'
                 ? UserRole.mentor
@@ -79,6 +82,7 @@ class OnboardingState {
   /// Convert to Firestore map
   Map<String, dynamic> toMap() {
     return {
+      'email': email,
       'selectedRole': selectedRole?.name,
       'firstName': firstName,
       'lastName': lastName,
@@ -100,6 +104,7 @@ class OnboardingState {
 
   /// Copy with new values
   OnboardingState copyWith({
+    String? email,
     UserRole? selectedRole,
     String? firstName,
     String? lastName,
@@ -119,6 +124,7 @@ class OnboardingState {
   }) {
     return OnboardingState(
       userId: userId,
+      email: email ?? this.email,
       selectedRole: selectedRole ?? this.selectedRole,
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,

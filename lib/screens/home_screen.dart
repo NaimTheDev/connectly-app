@@ -6,6 +6,7 @@ import '../providers/mentors_providers.dart';
 import '../providers/scheduled_calls_providers.dart';
 import '../providers/auth_providers.dart';
 import '../providers/onboarding_providers.dart';
+import '../services/url_launcher_service.dart';
 import '../theme/theme.dart';
 import '../widgets/spacers.dart';
 import '../widgets/main_navigation_wrapper.dart';
@@ -493,9 +494,7 @@ class _FeaturedCallCard extends StatelessWidget {
           Spacers.w16,
           ElevatedButton(
             onPressed: (call.joinUrl != null && call.joinUrl!.isNotEmpty)
-                ? () {
-                    // TODO: Launch join URL (e.g. using url_launcher)
-                  }
+                ? () => UrlLauncherService.launchJoinUrl(context, call.joinUrl!)
                 : null,
             style: ElevatedButton.styleFrom(
               elevation: 0,

@@ -11,7 +11,6 @@ class ScheduledCall {
   final String inviteeEmail;
   final String inviteeName;
   final String mentorUri;
-  final String? noShow;
   final String? payment;
   final String? reconfirmation;
   final String rescheduleUrl;
@@ -30,7 +29,6 @@ class ScheduledCall {
     required this.inviteeEmail,
     required this.inviteeName,
     required this.mentorUri,
-    this.noShow,
     this.payment,
     this.reconfirmation,
     required this.rescheduleUrl,
@@ -52,7 +50,6 @@ class ScheduledCall {
       inviteeEmail: data['inviteeEmail'] as String,
       inviteeName: data['inviteeName'] as String,
       mentorUri: data['mentorUri'] as String,
-      noShow: data['no_show'] as String?,
       payment: data['payment'] as String?,
       reconfirmation: data['reconfirmation'] as String?,
       rescheduleUrl: data['reschedule_url'] as String,
@@ -75,7 +72,6 @@ class ScheduledCall {
       'inviteeEmail': inviteeEmail,
       'inviteeName': inviteeName,
       'mentorUri': mentorUri,
-      'no_show': noShow,
       'payment': payment,
       'reconfirmation': reconfirmation,
       'reschedule_url': rescheduleUrl,

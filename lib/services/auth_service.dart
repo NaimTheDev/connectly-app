@@ -46,6 +46,18 @@ class AuthService {
     return (_userFromFirebase(result.user), isNew);
   }
 
+  /// Sign up with Google and return `(user, isNewUser)`.
+  Future<(AppUser?, bool)> signUpWithGoogle(UserRole role) async {
+    final googleUser = await _googleSignIn.authenticate();
+    final googleAuth = googleUser.authentication;
+    final credential = GoogleAuthProvider.credential(
+      idToken: googleAuth.idToken,
+    );
+    final result = await _auth.signInWithCredential(credential);
+    final isNew = result.additionalUserInfo?.isNewUser ?? false;
+    return (_userFromFirebase(result.user, role: role), isNew);
+  }
+
   Future<void> signOut() async {
     await _auth.signOut();
     await _googleSignIn.signOut();

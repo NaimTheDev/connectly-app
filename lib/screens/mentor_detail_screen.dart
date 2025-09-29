@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../models/mentor.dart';
 import '../models/service_type.dart';
 import '../providers/mentors_providers.dart';
@@ -8,6 +7,7 @@ import '../providers/auth_providers.dart';
 import '../providers/chats/chat_creation_providers.dart';
 import '../routing/app_router.dart';
 import '../screens/home_screen.dart'; // For MentorAvatar
+import '../services/url_launcher_service.dart';
 import '../theme/theme.dart';
 import '../widgets/spacers.dart';
 import '../widgets/brand_chip.dart';
@@ -472,7 +472,10 @@ class MentorDetailScreen extends ConsumerWidget {
         // Schedule Call Button
         if (canScheduleCall)
           ElevatedButton.icon(
-            onPressed: () => _launchCalendlyUrl(context, mentor.calendlyUrl!),
+            onPressed: () => UrlLauncherService.launchCalendlyUrl(
+              context,
+              mentor.calendlyUrl!,
+            ),
             icon: const Icon(Icons.video_call),
             label: const Text('Schedule Call'),
             style: ElevatedButton.styleFrom(
@@ -624,42 +627,6 @@ class MentorDetailScreen extends ConsumerWidget {
           ),
       ],
     );
-  }
-
-  Future<void> _launchCalendlyUrl(BuildContext context, String url) async {
-    try {
-      final uri = Uri.parse(url);
-
-      // Try to launch the URL
-      final launched = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
-
-      if (!launched) {
-        throw 'Could not launch $url';
-      }
-    } catch (e) {
-      debugPrint('Error launching Calendly URL: $e');
-
-      // Show user-friendly error message
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not open Calendly link. Please try again.'),
-            backgroundColor: Colors.red,
-            action: SnackBarAction(
-              label: 'Copy Link',
-              textColor: Colors.white,
-              onPressed: () {
-                // You could implement clipboard functionality here
-                debugPrint('Copy link: $url');
-              },
-            ),
-          ),
-        );
-      }
-    }
   }
 
   Future<void> _startChat(

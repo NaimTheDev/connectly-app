@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/scheduled_call.dart';
 import '../providers/scheduled_calls_providers.dart';
 import '../providers/auth_providers.dart';
+import '../services/url_launcher_service.dart';
 import '../theme/theme.dart';
 import '../widgets/spacers.dart';
 
@@ -314,17 +315,6 @@ class _CallCard extends StatelessWidget {
                 ),
               ),
 
-              // Event type if available
-              if (call.eventType.isNotEmpty) ...[
-                Spacers.h4,
-                Text(
-                  call.eventType,
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: brand.graphite.withOpacity(0.8),
-                  ),
-                ),
-              ],
-
               // Action buttons for upcoming calls
               if (isUpcoming &&
                   call.joinUrl != null &&
@@ -333,9 +323,10 @@ class _CallCard extends StatelessWidget {
                 Row(
                   children: [
                     ElevatedButton.icon(
-                      onPressed: () {
-                        // TODO: Launch join URL
-                      },
+                      onPressed: () => UrlLauncherService.launchJoinUrl(
+                        context,
+                        call.joinUrl!,
+                      ),
                       icon: const Icon(Icons.video_call, size: 18),
                       label: const Text('Join Call'),
                       style: ElevatedButton.styleFrom(

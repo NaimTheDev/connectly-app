@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/onboarding_state.dart';
 import '../models/app_user.dart';
 import '../models/mentor.dart';
@@ -81,6 +82,10 @@ class OnboardingService {
   /// Initialize onboarding for a user
   Future<OnboardingState> initializeOnboarding(String userId) async {
     try {
+      // Get user's email from Firebase Auth
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      final email = firebaseUser?.email;
+
       // Check if onboarding state exists in Firestore
       final doc = await FirebaseFirestore.instance
           .collection('onboarding')
@@ -88,17 +93,25 @@ class OnboardingService {
           .get();
 
       if (doc.exists) {
-        // Load existing onboarding state
-        return OnboardingState.fromMap(userId, doc.data()!);
+        // Load existing onboarding state, but ensure email is set
+        final existingState = OnboardingState.fromMap(userId, doc.data()!);
+        if (existingState.email == null && email != null) {
+          // Update with email if missing
+          final updatedState = existingState.copyWith(email: email);
+          await _saveState(updatedState);
+          return updatedState;
+        }
+        return existingState;
       } else {
-        // Create new onboarding state
-        final initialState = OnboardingState.initial(userId);
+        // Create new onboarding state with email
+        final initialState = OnboardingState.initial(userId, email: email);
         await _saveState(initialState);
         return initialState;
       }
     } catch (e) {
       // If error, create initial state
-      return OnboardingState.initial(userId);
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      return OnboardingState.initial(userId, email: firebaseUser?.email);
     }
   }
 
@@ -257,6 +270,7 @@ class OnboardingService {
           .collection('users')
           .doc(userId);
       final userData = {
+        'email': currentState.email,
         'firstName': currentState.firstName,
         'lastName': currentState.lastName,
         'name': '${currentState.firstName} ${currentState.lastName}',
