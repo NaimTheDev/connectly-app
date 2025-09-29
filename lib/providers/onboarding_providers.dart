@@ -1,0 +1,348 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/onboarding_state.dart';
+import '../models/app_user.dart';
+import '../models/mentor.dart';
+import '../models/service_type.dart';
+
+/// Provider for onboarding service
+final onboardingServiceProvider = Provider<OnboardingService>((ref) {
+  return OnboardingService();
+});
+
+/// Provider to check if user needs onboarding
+final needsOnboardingProvider = FutureProvider.family<bool, String>((
+  ref,
+  userId,
+) async {
+  try {
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .get();
+
+    if (!userDoc.exists) return true;
+
+    final userData = userDoc.data()!;
+    return !(userData['isOnboardingComplete'] ?? false);
+  } catch (e) {
+    return true; // Default to needing onboarding if error
+  }
+});
+
+/// Provider for current onboarding state
+final onboardingStateProvider = FutureProvider.family<OnboardingState?, String>(
+  (ref, userId) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('onboarding')
+          .doc(userId)
+          .get();
+
+      if (doc.exists) {
+        return OnboardingState.fromMap(userId, doc.data()!);
+      } else {
+        return OnboardingState.initial(userId);
+      }
+    } catch (e) {
+      return OnboardingState.initial(userId);
+    }
+  },
+);
+
+/// Provider for predefined categories
+final categoriesProvider = Provider<List<String>>((ref) {
+  return [
+    'Technology',
+    'Business',
+    'Design',
+    'Marketing',
+    'Finance',
+    'Healthcare',
+    'Education',
+    'Engineering',
+    'Data Science',
+    'Product Management',
+    'Sales',
+    'Human Resources',
+    'Legal',
+    'Consulting',
+    'Entrepreneurship',
+    'Career Development',
+    'Leadership',
+    'Communication',
+    'Project Management',
+    'Software Development',
+  ];
+});
+
+/// Service class for managing onboarding operations
+class OnboardingService {
+  /// Initialize onboarding for a user
+  Future<OnboardingState> initializeOnboarding(String userId) async {
+    try {
+      // Check if onboarding state exists in Firestore
+      final doc = await FirebaseFirestore.instance
+          .collection('onboarding')
+          .doc(userId)
+          .get();
+
+      if (doc.exists) {
+        // Load existing onboarding state
+        return OnboardingState.fromMap(userId, doc.data()!);
+      } else {
+        // Create new onboarding state
+        final initialState = OnboardingState.initial(userId);
+        await _saveState(initialState);
+        return initialState;
+      }
+    } catch (e) {
+      // If error, create initial state
+      return OnboardingState.initial(userId);
+    }
+  }
+
+  /// Update role selection
+  Future<OnboardingState> updateRole(
+    OnboardingState currentState,
+    UserRole role,
+  ) async {
+    final newState = currentState.copyWith(
+      selectedRole: role,
+      currentStep: 2,
+      totalSteps: role == UserRole.mentor ? 7 : 6,
+    );
+
+    await _saveState(newState);
+    return newState;
+  }
+
+  /// Update basic profile information
+  Future<OnboardingState> updateBasicProfile(
+    OnboardingState currentState, {
+    required String firstName,
+    required String lastName,
+    String? bio,
+    String? imageUrl,
+  }) async {
+    final newState = currentState.copyWith(
+      firstName: firstName,
+      lastName: lastName,
+      bio: bio,
+      imageUrl: imageUrl,
+      currentStep: 3,
+    );
+
+    await _saveState(newState);
+    return newState;
+  }
+
+  /// Update selected categories
+  Future<OnboardingState> updateCategories(
+    OnboardingState currentState,
+    List<String> categories,
+  ) async {
+    final newState = currentState.copyWith(
+      selectedCategories: categories,
+      currentStep: 4,
+    );
+
+    await _saveState(newState);
+    return newState;
+  }
+
+  /// Update mentor expertise
+  Future<OnboardingState> updateExpertise(
+    OnboardingState currentState,
+    String expertise,
+  ) async {
+    if (currentState.selectedRole != UserRole.mentor) {
+      throw Exception('Only mentors can set expertise');
+    }
+
+    final newState = currentState.copyWith(
+      expertise: expertise,
+      currentStep: 5,
+    );
+
+    await _saveState(newState);
+    return newState;
+  }
+
+  /// Update mentor services and pricing
+  Future<OnboardingState> updateServices(
+    OnboardingState currentState, {
+    required ServiceType service,
+    double? virtualAppointmentPrice,
+    double? chatPrice,
+  }) async {
+    if (currentState.selectedRole != UserRole.mentor) {
+      throw Exception('Only mentors can set services');
+    }
+
+    final newState = currentState.copyWith(
+      selectedService: service,
+      virtualAppointmentPrice: virtualAppointmentPrice,
+      chatPrice: chatPrice,
+      currentStep: 6,
+    );
+
+    await _saveState(newState);
+    return newState;
+  }
+
+  /// Update mentee goals and interests
+  Future<OnboardingState> updateGoalsAndInterests(
+    OnboardingState currentState, {
+    required String goals,
+    required List<String> interests,
+  }) async {
+    if (currentState.selectedRole != UserRole.mentee) {
+      throw Exception('Only mentees can set goals and interests');
+    }
+
+    final newState = currentState.copyWith(
+      goals: goals,
+      interests: interests,
+      currentStep: 5,
+    );
+
+    await _saveState(newState);
+    return newState;
+  }
+
+  /// Update Calendly setup status
+  Future<OnboardingState> updateCalendlySetup(
+    OnboardingState currentState,
+    bool isSetup,
+  ) async {
+    final newState = currentState.copyWith(
+      isCalendlySetup: isSetup,
+      currentStep: currentState.selectedRole == UserRole.mentor
+          ? 7
+          : currentState.currentStep,
+    );
+
+    await _saveState(newState);
+    return newState;
+  }
+
+  /// Complete onboarding and save to user profile
+  Future<void> completeOnboarding(OnboardingState currentState) async {
+    try {
+      final userId = currentState.userId;
+      print('🚀 Starting onboarding completion for user: $userId');
+      print('📋 User role: ${currentState.selectedRole?.name}');
+
+      final batch = FirebaseFirestore.instance.batch();
+
+      // Update user document
+      final userRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId);
+      final userData = {
+        'firstName': currentState.firstName,
+        'lastName': currentState.lastName,
+        'name': '${currentState.firstName} ${currentState.lastName}',
+        'bio': currentState.bio,
+        'imageUrl': currentState.imageUrl,
+        'isOnboardingComplete': true,
+      };
+
+      // Add role-specific data
+      if (currentState.selectedRole == UserRole.mentee) {
+        userData.addAll({
+          'goals': currentState.goals,
+          'interests': currentState.interests,
+        });
+      }
+
+      print('📝 BATCH OPERATION 1: SET users/$userId (with merge)');
+      print('   Data: $userData');
+      batch.set(userRef, userData, SetOptions(merge: true));
+
+      // If mentor, create/update mentor document
+      if (currentState.selectedRole == UserRole.mentor) {
+        final mentorRef = FirebaseFirestore.instance
+            .collection('mentors')
+            .doc(userId);
+        final mentorData = {
+          'name': '${currentState.firstName} ${currentState.lastName}',
+          'firstName': currentState.firstName,
+          'lastName': currentState.lastName,
+          'bio': currentState.bio ?? '',
+          'expertise': currentState.expertise ?? '',
+          'imageUrl': currentState.imageUrl,
+          'categories': currentState.selectedCategories,
+          'services': currentState.selectedService?.toString(),
+          'virtualAppointmentPrice': currentState.virtualAppointmentPrice,
+          'chatPrice': currentState.chatPrice,
+          'isCalendlySetup': currentState.isCalendlySetup,
+        };
+
+        print('📝 BATCH OPERATION 2: SET mentors/$userId');
+        print('   Data: $mentorData');
+        batch.set(mentorRef, mentorData);
+      }
+
+      // Mark onboarding as complete
+      final onboardingRef = FirebaseFirestore.instance
+          .collection('onboarding')
+          .doc(userId);
+      final onboardingData = {
+        'isComplete': true,
+        'currentStep': currentState.totalStepsForRole,
+      };
+
+      print('📝 BATCH OPERATION 3: SET onboarding/$userId (with merge)');
+      print('   Data: $onboardingData');
+      batch.set(onboardingRef, onboardingData, SetOptions(merge: true));
+
+      print(
+        '💾 Committing batch with ${currentState.selectedRole == UserRole.mentor ? 3 : 2} operations...',
+      );
+      await batch.commit();
+      print('✅ Batch commit successful!');
+    } catch (e) {
+      print('❌ Batch commit failed: $e');
+      throw Exception('Failed to complete onboarding: $e');
+    }
+  }
+
+  /// Go to next step
+  Future<OnboardingState> nextStep(OnboardingState currentState) async {
+    if (currentState.canProceed &&
+        currentState.currentStep < currentState.totalStepsForRole) {
+      final newState = currentState.copyWith(
+        currentStep: currentState.currentStep + 1,
+      );
+      await _saveState(newState);
+      return newState;
+    }
+    return currentState;
+  }
+
+  /// Go to previous step
+  Future<OnboardingState> previousStep(OnboardingState currentState) async {
+    if (currentState.currentStep > 0) {
+      final newState = currentState.copyWith(
+        currentStep: currentState.currentStep - 1,
+      );
+      await _saveState(newState);
+      return newState;
+    }
+    return currentState;
+  }
+
+  /// Save current state to Firestore
+  Future<void> _saveState(OnboardingState state) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('onboarding')
+          .doc(state.userId)
+          .set(state.toMap(), SetOptions(merge: true));
+    } catch (e) {
+      // Handle error silently for now
+    }
+  }
+}

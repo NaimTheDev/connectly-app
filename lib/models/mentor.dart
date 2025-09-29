@@ -1,3 +1,5 @@
+import 'service_type.dart';
+
 /// Mentor data model for Connectly app.
 ///
 /// This class represents a mentor and includes serialization methods for
@@ -15,6 +17,10 @@ class Mentor {
   final List<String>? categories;
   final String? firstName;
   final String? lastName;
+  final ServiceType? services;
+  final double? virtualAppointmentPrice;
+  final double? chatPrice;
+  final bool isCalendlySetup;
 
   const Mentor({
     required this.id,
@@ -29,6 +35,10 @@ class Mentor {
     this.categories,
     this.firstName,
     this.lastName,
+    this.services,
+    this.virtualAppointmentPrice,
+    this.chatPrice,
+    this.isCalendlySetup = false,
   });
 
   /// Creates a Mentor from a Firestore map and document ID.
@@ -48,6 +58,13 @@ class Mentor {
           .toList(),
       firstName: data['firstName'] as String?,
       lastName: data['lastName'] as String?,
+      services: data['services'] != null
+          ? ServiceType.fromString(data['services'])
+          : null,
+      virtualAppointmentPrice: (data['virtualAppointmentPrice'] as num?)
+          ?.toDouble(),
+      chatPrice: (data['chatPrice'] as num?)?.toDouble(),
+      isCalendlySetup: data['isCalendlySetup'] ?? false,
     );
   }
 
@@ -70,6 +87,13 @@ class Mentor {
           .toList(),
       firstName: json['firstName'] as String?,
       lastName: json['lastName'] as String?,
+      services: json['services'] != null
+          ? ServiceType.fromString(json['services'])
+          : null,
+      virtualAppointmentPrice: (json['virtualAppointmentPrice'] as num?)
+          ?.toDouble(),
+      chatPrice: (json['chatPrice'] as num?)?.toDouble(),
+      isCalendlySetup: json['isCalendlySetup'] ?? false,
     );
   }
 
@@ -88,6 +112,10 @@ class Mentor {
       'categories': categories,
       'firstName': firstName,
       'lastName': lastName,
+      'services': services?.toString(),
+      'virtualAppointmentPrice': virtualAppointmentPrice,
+      'chatPrice': chatPrice,
+      'isCalendlySetup': isCalendlySetup,
     };
   }
 }

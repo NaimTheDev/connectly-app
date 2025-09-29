@@ -5,12 +5,14 @@ import '../models/scheduled_call.dart';
 import '../providers/mentors_providers.dart';
 import '../providers/scheduled_calls_providers.dart';
 import '../providers/auth_providers.dart';
+import '../providers/onboarding_providers.dart';
 import '../theme/theme.dart';
 import '../widgets/spacers.dart';
 import '../widgets/main_navigation_wrapper.dart';
 import 'sign_in_screen.dart';
+import 'onboarding/onboarding_flow_screen.dart';
 
-/// AuthGate widget that uses isSignedInProvider to show HomeScreen or SignInScreen based on auth state.
+/// AuthGate widget that checks authentication and onboarding status to route users appropriately.
 /// This enables reactive navigation logic with Riverpod.
 class AuthGate extends ConsumerWidget {
   const AuthGate({super.key});
@@ -18,15 +20,47 @@ class AuthGate extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isSignedInAsync = ref.watch(isSignedInProvider);
+
     return isSignedInAsync.when(
       data: (signedIn) {
-        if (signedIn) {
-          // User is signed in, show MainNavigationWrapper
-          return const MainNavigationWrapper();
-        } else {
-          // Not signed in, show SignInScreen
+        if (!signedIn) {
           return const SignInScreen();
         }
+
+        // User is signed in, check if they need onboarding
+        final firebaseUserAsync = ref.watch(firebaseUserStreamProvider);
+        return firebaseUserAsync.when(
+          data: (firebaseUser) {
+            if (firebaseUser == null) {
+              return const SignInScreen();
+            }
+
+            // Check onboarding status
+            final needsOnboardingAsync = ref.watch(
+              needsOnboardingProvider(firebaseUser.uid),
+            );
+            return needsOnboardingAsync.when(
+              data: (needsOnboarding) {
+                if (needsOnboarding) {
+                  return const OnboardingFlowScreen();
+                } else {
+                  return const MainNavigationWrapper();
+                }
+              },
+              loading: () => const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              ),
+              error: (err, _) {
+                // If error checking onboarding status, default to onboarding for safety
+                return const OnboardingFlowScreen();
+              },
+            );
+          },
+          loading: () =>
+              const Scaffold(body: Center(child: CircularProgressIndicator())),
+          error: (err, _) =>
+              Scaffold(body: Center(child: Text('Auth error: $err'))),
+        );
       },
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),

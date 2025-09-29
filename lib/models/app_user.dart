@@ -10,6 +10,10 @@ class AppUser {
   final String? name;
   final String? firstName;
   final String? lastName;
+  final String? bio;
+  final List<String>? interests;
+  final String? goals;
+  final bool isOnboardingComplete;
 
   const AppUser({
     required this.uid,
@@ -19,6 +23,10 @@ class AppUser {
     this.name,
     this.firstName,
     this.lastName,
+    this.bio,
+    this.interests,
+    this.goals,
+    this.isOnboardingComplete = false,
   });
 
   factory AppUser.fromMap(String uid, Map<String, dynamic> data) {
@@ -37,6 +45,12 @@ class AppUser {
       name: name,
       firstName: firstName,
       lastName: lastName,
+      bio: data['bio'] as String?,
+      interests: data['interests'] != null
+          ? List<String>.from(data['interests'])
+          : null,
+      goals: data['goals'] as String?,
+      isOnboardingComplete: data['isOnboardingComplete'] ?? false,
     );
   }
 
@@ -47,5 +61,9 @@ class AppUser {
     'imageUrl': imageUrl,
     'firstName': firstName,
     'lastName': lastName,
+    'bio': bio,
+    'interests': interests,
+    'goals': goals,
+    'isOnboardingComplete': isOnboardingComplete,
   };
 }

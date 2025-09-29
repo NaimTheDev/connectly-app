@@ -17,7 +17,11 @@ class AuthService {
     return _userFromFirebase(result.user);
   }
 
-  Future<AppUser?> signUpWithEmail(
+  /// Sign up with email/password and return both the created user (as [AppUser])
+  /// and a boolean flag indicating whether this is a brand new account.
+  ///
+  /// Returns a record: `(user, isNewUser)`.
+  Future<(AppUser?, bool)> signUpWithEmail(
     String email,
     String password,
     UserRole role,
@@ -26,18 +30,20 @@ class AuthService {
       email: email,
       password: password,
     );
-    // You should also save the role and other info to Firestore here
-    return _userFromFirebase(result.user, role: role);
+    final isNew = result.additionalUserInfo?.isNewUser ?? true;
+    return (_userFromFirebase(result.user, role: role), isNew);
   }
 
-  Future<AppUser?> signInWithGoogle() async {
+  /// Sign in with Google and return `(user, isNewUser)`.
+  Future<(AppUser?, bool)> signInWithGoogle() async {
     final googleUser = await _googleSignIn.authenticate();
     final googleAuth = googleUser.authentication;
     final credential = GoogleAuthProvider.credential(
       idToken: googleAuth.idToken,
     );
     final result = await _auth.signInWithCredential(credential);
-    return _userFromFirebase(result.user);
+    final isNew = result.additionalUserInfo?.isNewUser ?? false;
+    return (_userFromFirebase(result.user), isNew);
   }
 
   Future<void> signOut() async {

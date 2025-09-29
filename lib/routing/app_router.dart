@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../screens/screens.dart';
 import '../screens/chat_screen.dart';
+import '../screens/onboarding/onboarding_flow_screen.dart';
 import '../models/chat.dart';
 
 /// Arguments for ChatScreen navigation
@@ -27,10 +28,12 @@ class AppRouter {
   static const String signUp = '/signup';
   static const String mentorDetail = '/mentor';
   static const String chat = '/chat';
+  static const String onboarding = '/onboarding';
 
   static Map<String, WidgetBuilder> get routes => {
     signIn: (context) => const SignInScreen(),
     signUp: (context) => const SignUpScreen(),
+    onboarding: (context) => const OnboardingFlowScreen(),
   };
 
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
