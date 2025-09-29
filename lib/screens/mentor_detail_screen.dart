@@ -472,7 +472,7 @@ class MentorDetailScreen extends ConsumerWidget {
         // Schedule Call Button
         if (canScheduleCall)
           ElevatedButton.icon(
-            onPressed: () => _launchCalendlyUrl(mentor.calendlyUrl!),
+            onPressed: () => _launchCalendlyUrl(context, mentor.calendlyUrl!),
             icon: const Icon(Icons.video_call),
             label: const Text('Schedule Call'),
             style: ElevatedButton.styleFrom(
@@ -626,17 +626,39 @@ class MentorDetailScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _launchCalendlyUrl(String url) async {
+  Future<void> _launchCalendlyUrl(BuildContext context, String url) async {
     try {
       final uri = Uri.parse(url);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
+
+      // Try to launch the URL
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!launched) {
         throw 'Could not launch $url';
       }
     } catch (e) {
       debugPrint('Error launching Calendly URL: $e');
-      // You could show a snackbar here to inform the user
+
+      // Show user-friendly error message
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not open Calendly link. Please try again.'),
+            backgroundColor: Colors.red,
+            action: SnackBarAction(
+              label: 'Copy Link',
+              textColor: Colors.white,
+              onPressed: () {
+                // You could implement clipboard functionality here
+                debugPrint('Copy link: $url');
+              },
+            ),
+          ),
+        );
+      }
     }
   }
 
