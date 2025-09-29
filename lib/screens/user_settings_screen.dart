@@ -4,6 +4,7 @@ import '../providers/auth_providers.dart';
 import '../services/auth_service.dart';
 import '../theme/theme.dart';
 import '../widgets/spacers.dart';
+import 'edit_profile_screen.dart';
 
 /// Screen for user settings and profile management
 class UserSettingsScreen extends ConsumerWidget {
@@ -63,58 +64,17 @@ class UserSettingsScreen extends ConsumerWidget {
                         title: 'Edit Profile',
                         subtitle: 'Update your personal information',
                         onTap: () {
-                          // TODO: Navigate to profile edit screen
-                        },
-                      ),
-                      _SettingsItem(
-                        icon: Icons.notifications_none_outlined,
-                        title: 'Notifications',
-                        subtitle: 'Manage your notification preferences',
-                        onTap: () {
-                          // TODO: Navigate to notifications settings
-                        },
-                      ),
-                      _SettingsItem(
-                        icon: Icons.security_outlined,
-                        title: 'Privacy & Security',
-                        subtitle: 'Control your privacy settings',
-                        onTap: () {
-                          // TODO: Navigate to privacy settings
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const EditProfileScreen(),
+                            ),
+                          );
                         },
                       ),
                     ],
                   ),
                   Spacers.h24,
 
-                  _SettingsSection(
-                    title: 'Support',
-                    items: [
-                      _SettingsItem(
-                        icon: Icons.help_outline,
-                        title: 'Help Center',
-                        subtitle: 'Get help and support',
-                        onTap: () {
-                          // TODO: Navigate to help center
-                        },
-                      ),
-                      _SettingsItem(
-                        icon: Icons.feedback_outlined,
-                        title: 'Send Feedback',
-                        subtitle: 'Share your thoughts with us',
-                        onTap: () {
-                          // TODO: Open feedback form
-                        },
-                      ),
-                      _SettingsItem(
-                        icon: Icons.info_outline,
-                        title: 'About',
-                        subtitle: 'App version and information',
-                        onTap: () {
-                          // TODO: Show about dialog
-                        },
-                      ),
-                    ],
-                  ),
                   Spacers.h32,
 
                   // Sign Out Section

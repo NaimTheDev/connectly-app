@@ -1,23 +1,34 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/theme.dart';
 import '../../widgets/spacers.dart';
+import '../../models/onboarding_state.dart';
+import '../../providers/onboarding_providers.dart';
+import '../../providers/auth_providers.dart';
 
 /// Loading screen shown during onboarding completion
-class OnboardingCompletionLoadingScreen extends StatefulWidget {
-  const OnboardingCompletionLoadingScreen({super.key});
+class OnboardingCompletionLoadingScreen extends ConsumerStatefulWidget {
+  const OnboardingCompletionLoadingScreen({super.key, required this.state});
+
+  final OnboardingState state;
 
   @override
-  State<OnboardingCompletionLoadingScreen> createState() =>
+  ConsumerState<OnboardingCompletionLoadingScreen> createState() =>
       _OnboardingCompletionLoadingScreenState();
 }
 
 class _OnboardingCompletionLoadingScreenState
-    extends State<OnboardingCompletionLoadingScreen>
+    extends ConsumerState<OnboardingCompletionLoadingScreen>
     with TickerProviderStateMixin {
   late AnimationController _pulseController;
   late AnimationController _rotationController;
   late Animation<double> _pulseAnimation;
   late Animation<double> _rotationAnimation;
+  bool _started = false;
+  bool _failed = false;
+  String? _errorMessage;
+  bool _isRetrying = false;
 
   @override
   void initState() {
@@ -43,6 +54,14 @@ class _OnboardingCompletionLoadingScreenState
 
     _pulseController.repeat(reverse: true);
     _rotationController.repeat();
+
+    // kick off completion after first frame to ensure context mounted
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_started) {
+        _started = true;
+        _complete();
+      }
+    });
   }
 
   @override
@@ -156,11 +175,154 @@ class _OnboardingCompletionLoadingScreenState
                     isActive: false,
                     brand: brand,
                   ),
+                  // Retry / error section (only visible if failed)
+                  _buildRetrySection(brand, textTheme),
                 ],
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _complete() async {
+    setState(() {
+      _failed = false;
+      _errorMessage = null;
+      _isRetrying = true;
+    });
+    final onboardingService = ref.read(onboardingServiceProvider);
+    const maxAttempts = 3;
+    bool success = false;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      final attemptLabel = 'Attempt $attempt/$maxAttempts';
+      try {
+        // ignore: avoid_print
+        print('🚀 Completing onboarding from loading screen... $attemptLabel');
+        await onboardingService
+            .completeOnboarding(widget.state)
+            .timeout(const Duration(seconds: 20));
+        success = true;
+        // ignore: avoid_print
+        print('✅ Completion successful ($attemptLabel)');
+        break;
+      } on TimeoutException catch (_) {
+        if (attempt == maxAttempts) {
+          _showError('Network timeout');
+        } else {
+          _showSnack('Network timeout. Retrying...');
+        }
+      } catch (e) {
+        if (attempt == maxAttempts) {
+          _showError('Failed: $e');
+        } else {
+          _showSnack('Error finishing setup. Retrying...');
+        }
+      }
+      if (!success && attempt < maxAttempts) {
+        await Future.delayed(Duration(seconds: attempt));
+      }
+    }
+    if (!mounted) return;
+    if (success) {
+      // Invalidate the needsOnboarding provider to force refetch of updated data
+      final firebaseUser = ref.read(firebaseUserStreamProvider).value;
+      if (firebaseUser != null) {
+        ref.invalidate(needsOnboardingProvider(firebaseUser.uid));
+        // ignore: avoid_print
+        print('🔄 Invalidated needsOnboardingProvider cache for ${firebaseUser.uid}');
+      }
+      
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (r) => false);
+    } else {
+      setState(() {
+        _failed = true;
+        _isRetrying = false;
+      });
+    }
+    if (mounted && success) {
+      setState(() {
+        _isRetrying = false;
+      });
+    }
+  }
+
+  void _showSnack(String msg) {
+    if (!mounted) return;
+    final brand = Theme.of(context).extension<AppBrand>()!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: brand.warning),
+    );
+  }
+
+  void _showError(String msg) {
+    if (!mounted) return;
+    final brand = Theme.of(context).extension<AppBrand>()!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Failed to complete setup: $msg'),
+        backgroundColor: brand.danger,
+      ),
+    );
+    setState(() {
+      _errorMessage = msg;
+    });
+  }
+
+  Widget _buildRetrySection(AppBrand brand, TextTheme textTheme) {
+    if (!_failed) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 32.0),
+      child: Column(
+        children: [
+          Icon(Icons.error_outline, size: 48, color: brand.danger),
+            const SizedBox(height: 16),
+          Text(
+            'We\'re having trouble finishing up',
+            style: textTheme.titleMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          if (_errorMessage != null)
+            Text(
+              _errorMessage!,
+              style: textTheme.bodySmall?.copyWith(
+                color: Colors.white.withOpacity(0.8),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ElevatedButton.icon(
+                onPressed: _isRetrying ? null : _complete,
+                icon: _isRetrying
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh),
+                label: Text(_isRetrying ? 'Retrying...' : 'Retry now'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: brand.brand,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

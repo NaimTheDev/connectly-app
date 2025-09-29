@@ -112,8 +112,24 @@ class OnboardingService {
       currentStep: 2,
       totalSteps: role == UserRole.mentor ? 7 : 6,
     );
+    // Persist both onboarding state and early user role so the rest of the
+    // app (and analytics/security rules) can immediately rely on `users/{id}.role`.
+    try {
+      final firestore = FirebaseFirestore.instance;
+      final userRef = firestore.collection('users').doc(currentState.userId);
 
-    await _saveState(newState);
+      // Write onboarding state (merge keeps any partial previously stored fields)
+      final onboardingWrite = _saveState(newState);
+
+      // Write/merge role onto user doc without overwriting other fields.
+      final userRoleWrite = userRef.set({
+        'role': role.name,
+      }, SetOptions(merge: true));
+
+      await Future.wait([onboardingWrite, userRoleWrite]);
+    } catch (e) {
+      // Silent catch; onboarding flow can continue – role will be written again on completion.
+    }
     return newState;
   }
 
@@ -247,6 +263,9 @@ class OnboardingService {
         'bio': currentState.bio,
         'imageUrl': currentState.imageUrl,
         'isOnboardingComplete': true,
+        // Ensure role is present/finalized on the user document.
+        if (currentState.selectedRole != null)
+          'role': currentState.selectedRole!.name,
       };
 
       // Add role-specific data

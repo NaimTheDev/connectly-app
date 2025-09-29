@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/onboarding_state.dart';
-import '../../providers/onboarding_providers.dart';
 import '../../theme/theme.dart';
 import '../../widgets/spacers.dart';
 
@@ -30,6 +30,7 @@ class _MenteeCompletionScreenState extends ConsumerState<MenteeCompletionScreen>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   late Animation<double> _scaleAnimation;
+  Timer? _celebrationTimer; // guards delayed start to avoid firing after dispose
 
   bool _isLoading = false;
 
@@ -61,13 +62,16 @@ class _MenteeCompletionScreenState extends ConsumerState<MenteeCompletionScreen>
     );
 
     _animationController.forward();
-    Future.delayed(const Duration(milliseconds: 400), () {
-      _celebrationController.forward();
+    _celebrationTimer = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) {
+        _celebrationController.forward();
+      }
     });
   }
 
   @override
   void dispose() {
+    _celebrationTimer?.cancel();
     _animationController.dispose();
     _celebrationController.dispose();
     super.dispose();
@@ -79,13 +83,13 @@ class _MenteeCompletionScreenState extends ConsumerState<MenteeCompletionScreen>
     });
 
     try {
-      final onboardingService = ref.read(onboardingServiceProvider);
+      // Do NOT call completeOnboarding here. We just mark the state complete
+      // and let the parent flow (`OnboardingFlowScreen`) handle persistence
+      // uniformly (same pattern as mentor flow) so we avoid double writes.
       final completedState = widget.currentState.copyWith(
         isComplete: true,
         currentStep: widget.currentState.totalStepsForRole,
       );
-
-      await onboardingService.completeOnboarding(completedState);
       widget.onCompletionFinished(completedState);
     } catch (e) {
       if (mounted) {

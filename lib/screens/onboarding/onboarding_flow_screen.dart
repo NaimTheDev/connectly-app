@@ -78,44 +78,18 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
     });
 
     if (newState.isComplete) {
-      print('🎯 Onboarding marked as complete, showing loading screen...');
-
-      // Show loading screen
       if (mounted) {
+        print(
+          '🎯 Onboarding marked as complete, transitioning to loading screen route...',
+        );
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (context) => const OnboardingCompletionLoadingScreen(),
+            builder: (context) =>
+                OnboardingCompletionLoadingScreen(state: newState),
           ),
         );
       }
-
-      // Complete onboarding in the service
-      try {
-        final onboardingService = ref.read(onboardingServiceProvider);
-        await onboardingService.completeOnboarding(newState);
-        print('✅ Onboarding completion successful!');
-
-        // Wait a moment for the loading animation
-        await Future.delayed(const Duration(seconds: 2));
-
-        // Navigate to main app - use pushNamedAndRemoveUntil to clear the stack
-        if (mounted) {
-          print('🏠 Navigating to home page...');
-          Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-        }
-      } catch (e) {
-        print('❌ Onboarding completion failed: $e');
-        if (mounted) {
-          // Show error and go back
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to complete setup: $e'),
-              backgroundColor: Theme.of(context).extension<AppBrand>()!.danger,
-            ),
-          );
-          Navigator.of(context).pop(); // Go back to previous screen
-        }
-      }
+      return; // Don't continue with step navigation
     } else {
       // Move to next step
       _pageController.nextPage(

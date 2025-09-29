@@ -97,15 +97,6 @@ class WelcomeScreen extends StatelessWidget {
                           description: 'Schedule calls and chat sessions',
                           brand: brand,
                         ),
-
-                        Spacers.h16,
-
-                        _FeatureHighlight(
-                          icon: Icons.trending_up_outlined,
-                          title: 'Career Growth',
-                          description: 'Accelerate your professional journey',
-                          brand: brand,
-                        ),
                       ],
                     ),
                   ),
@@ -132,23 +123,6 @@ class WelcomeScreen extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                           color: brand.brand,
                         ),
-                      ),
-                    ),
-                  ),
-
-                  Spacers.h12,
-
-                  // Skip option
-                  TextButton(
-                    onPressed: () {
-                      // TODO: Implement skip for returning users
-                    },
-                    child: Text(
-                      'Already have an account? Skip setup',
-                      style: textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withOpacity(0.8),
-                        decoration: TextDecoration.underline,
-                        decorationColor: Colors.white.withOpacity(0.8),
                       ),
                     ),
                   ),
