@@ -231,9 +231,11 @@ class _OnboardingCompletionLoadingScreenState
       if (firebaseUser != null) {
         ref.invalidate(needsOnboardingProvider(firebaseUser.uid));
         // ignore: avoid_print
-        print('🔄 Invalidated needsOnboardingProvider cache for ${firebaseUser.uid}');
+        print(
+          '🔄 Invalidated needsOnboardingProvider cache for ${firebaseUser.uid}',
+        );
       }
-      
+
       await Future.delayed(const Duration(seconds: 2));
       if (!mounted) return;
       Navigator.of(context).pushNamedAndRemoveUntil('/', (r) => false);
@@ -279,7 +281,7 @@ class _OnboardingCompletionLoadingScreenState
       child: Column(
         children: [
           Icon(Icons.error_outline, size: 48, color: brand.danger),
-            const SizedBox(height: 16),
+          const SizedBox(height: 16),
           Text(
             'We\'re having trouble finishing up',
             style: textTheme.titleMedium?.copyWith(

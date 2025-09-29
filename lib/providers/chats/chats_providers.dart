@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/chat.dart';
@@ -79,6 +80,88 @@ final chatsWithLatestMessageProvider =
       });
 
       return chatsWithMessages;
+    });
+
+/// Real-time streaming provider for chats with latest messages
+final chatsStreamProvider = StreamProvider.autoDispose
+    .family<List<ChatWithLatestMessage>, String>((ref, uid) {
+      // Create a controller to manually merge the streams
+      late StreamController<List<ChatWithLatestMessage>> controller;
+
+      // Keep track of both mentor and mentee chats
+      List<QueryDocumentSnapshot<Map<String, dynamic>>> mentorChats = [];
+      List<QueryDocumentSnapshot<Map<String, dynamic>>> menteeChats = [];
+
+      // Function to process and emit combined chats
+      Future<void> emitCombinedChats() async {
+        try {
+          final List<ChatWithLatestMessage> chatsWithMessages = [];
+
+          // Process mentor chats
+          for (final chatDoc in mentorChats) {
+            final chat = Chat.fromMap(chatDoc.id, chatDoc.data());
+            final latestMessage = await _getLatestMessage(chat.chatId);
+            chatsWithMessages.add(
+              ChatWithLatestMessage(chat: chat, latestMessage: latestMessage),
+            );
+          }
+
+          // Process mentee chats
+          for (final chatDoc in menteeChats) {
+            final chat = Chat.fromMap(chatDoc.id, chatDoc.data());
+            final latestMessage = await _getLatestMessage(chat.chatId);
+            chatsWithMessages.add(
+              ChatWithLatestMessage(chat: chat, latestMessage: latestMessage),
+            );
+          }
+
+          // Sort by latest message timestamp, then by chat timestamp
+          chatsWithMessages.sort((a, b) {
+            final aTimestamp = a.latestMessage?.timestamp ?? a.chat.timestamp;
+            final bTimestamp = b.latestMessage?.timestamp ?? b.chat.timestamp;
+            return bTimestamp.compareTo(aTimestamp);
+          });
+
+          if (!controller.isClosed) {
+            controller.add(chatsWithMessages);
+          }
+        } catch (e) {
+          if (!controller.isClosed) {
+            controller.addError(e);
+          }
+        }
+      }
+
+      controller = StreamController<List<ChatWithLatestMessage>>();
+
+      // Listen to mentor chats
+      final mentorSubscription = FirebaseFirestore.instance
+          .collection('chats')
+          .where('mentorId', isEqualTo: uid)
+          .snapshots()
+          .listen((snapshot) {
+            mentorChats = snapshot.docs;
+            emitCombinedChats();
+          });
+
+      // Listen to mentee chats
+      final menteeSubscription = FirebaseFirestore.instance
+          .collection('chats')
+          .where('menteeId', isEqualTo: uid)
+          .snapshots()
+          .listen((snapshot) {
+            menteeChats = snapshot.docs;
+            emitCombinedChats();
+          });
+
+      // Clean up when provider is disposed
+      ref.onDispose(() {
+        mentorSubscription.cancel();
+        menteeSubscription.cancel();
+        controller.close();
+      });
+
+      return controller.stream;
     });
 
 /// Helper function to get the latest message for a chat

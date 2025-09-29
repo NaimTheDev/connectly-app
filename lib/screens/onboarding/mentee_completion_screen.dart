@@ -30,7 +30,8 @@ class _MenteeCompletionScreenState extends ConsumerState<MenteeCompletionScreen>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   late Animation<double> _scaleAnimation;
-  Timer? _celebrationTimer; // guards delayed start to avoid firing after dispose
+  Timer?
+  _celebrationTimer; // guards delayed start to avoid firing after dispose
 
   bool _isLoading = false;
 

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../screens/screens.dart';
-import '../screens/chat_screen.dart';
 import '../screens/onboarding/onboarding_flow_screen.dart';
 import '../models/chat.dart';
 
@@ -67,50 +66,11 @@ class AppRouter {
         if (settings.name?.startsWith('/mentor/') == true) {
           final mentorId = settings.name!.split('/').last;
           return MaterialPageRoute(
-            builder: (context) => _MentorDetailPlaceholder(mentorId: mentorId),
+            builder: (context) => MentorDetailScreen(mentorId: mentorId),
             settings: settings,
           );
         }
         return null;
     }
-  }
-}
-
-/// Placeholder for mentor detail screen
-class _MentorDetailPlaceholder extends StatelessWidget {
-  final String mentorId;
-
-  const _MentorDetailPlaceholder({required this.mentorId});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Mentor Details'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.person, size: 64),
-            const SizedBox(height: 16),
-            Text(
-              'Mentor Detail Screen',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Text('Mentor ID: $mentorId'),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Go Back'),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

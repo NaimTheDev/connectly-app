@@ -21,3 +21,24 @@ final mentorsProvider = FutureProvider<List<Mentor>>((ref) async {
     );
   }).toList();
 });
+
+/// Provider for fetching a specific mentor by ID
+final mentorByIdProvider = FutureProvider.family<Mentor?, String>((
+  ref,
+  mentorId,
+) async {
+  try {
+    final doc = await FirebaseFirestore.instance
+        .collection('mentors')
+        .doc(mentorId)
+        .get();
+
+    if (!doc.exists) {
+      return null;
+    }
+
+    return Mentor.fromMap(doc.id, doc.data()!);
+  } catch (e) {
+    throw Exception('Failed to fetch mentor: $e');
+  }
+});

@@ -44,9 +44,7 @@ class MessagesScreen extends ConsumerWidget {
               );
             }
 
-            final chatsAsync = ref.watch(
-              chatsWithLatestMessageProvider(firebaseUser.uid),
-            );
+            final chatsAsync = ref.watch(chatsStreamProvider(firebaseUser.uid));
 
             return chatsAsync.when(
               data: (chatsWithMessages) {
