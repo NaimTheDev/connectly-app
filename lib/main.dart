@@ -21,7 +21,7 @@ class MyApp extends StatelessWidget {
       title: 'Connectly',
       theme: ConnectlyTheme.light(),
       darkTheme: ConnectlyTheme.dark(),
-      themeMode: ThemeMode.system,
+      themeMode: ThemeMode.light,
       home: const AuthGate(),
       routes: AppRouter.routes,
       onGenerateRoute: AppRouter.onGenerateRoute,
