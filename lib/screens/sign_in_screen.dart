@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_providers.dart';
-import '../services/auth_service.dart';
+import '../services/auth_exceptions.dart';
+import '../widgets/auth_error_widgets.dart';
 import 'onboarding/onboarding_flow_screen.dart';
 
 class SignInScreen extends ConsumerStatefulWidget {
@@ -15,7 +16,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _loading = false;
-  String? _error;
+  AuthException? _error;
 
   Future<void> _signInWithEmail() async {
     setState(() => _loading = true);
@@ -26,8 +27,10 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         _passwordController.text.trim(),
       );
       setState(() => _error = null);
+    } on AuthException catch (e) {
+      setState(() => _error = e);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = UnknownAuthException(e.toString()));
     } finally {
       setState(() => _loading = false);
     }
@@ -45,8 +48,10 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
           (route) => false,
         );
       }
+    } on AuthException catch (e) {
+      setState(() => _error = e);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = UnknownAuthException(e.toString()));
     } finally {
       setState(() => _loading = false);
     }
@@ -72,12 +77,16 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                 obscureText: true,
               ),
               if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(color: Colors.red),
-                  ),
+                AuthErrorCard(
+                  error: _error!,
+                  onRetry: () {
+                    setState(() => _error = null);
+                    if (_emailController.text.isNotEmpty &&
+                        _passwordController.text.isNotEmpty) {
+                      _signInWithEmail();
+                    }
+                  },
+                  onDismiss: () => setState(() => _error = null),
                 ),
               ElevatedButton(
                 onPressed: _loading ? null : _signInWithEmail,
@@ -92,6 +101,12 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                 onPressed: _loading ? null : _signInWithGoogle,
               ),
               const SizedBox(height: 16),
+              TextButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/password-reset');
+                },
+                child: const Text('Forgot Password?'),
+              ),
               TextButton(
                 onPressed: () {
                   Navigator.pushNamed(context, '/signup');

@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/app_user.dart';
+import 'auth_exceptions.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -10,11 +11,15 @@ class AuthService {
   Stream<User?> get firebaseUserStream => _auth.authStateChanges();
 
   Future<AppUser?> signInWithEmail(String email, String password) async {
-    final result = await _auth.signInWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
-    return _userFromFirebase(result.user);
+    try {
+      final result = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      return _userFromFirebase(result.user);
+    } catch (error) {
+      throw AuthExceptionHandler.handleFirebaseAuthException(error);
+    }
   }
 
   /// Sign up with email/password and return both the created user (as [AppUser])
@@ -26,41 +31,70 @@ class AuthService {
     String password,
     UserRole role,
   ) async {
-    final result = await _auth.createUserWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
-    final isNew = result.additionalUserInfo?.isNewUser ?? true;
-    return (_userFromFirebase(result.user, role: role), isNew);
+    try {
+      final result = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      final isNew = result.additionalUserInfo?.isNewUser ?? true;
+      return (_userFromFirebase(result.user, role: role), isNew);
+    } catch (error) {
+      throw AuthExceptionHandler.handleFirebaseAuthException(error);
+    }
   }
 
   /// Sign in with Google and return `(user, isNewUser)`.
   Future<(AppUser?, bool)> signInWithGoogle() async {
-    final googleUser = await _googleSignIn.authenticate();
-    final googleAuth = googleUser.authentication;
-    final credential = GoogleAuthProvider.credential(
-      idToken: googleAuth.idToken,
-    );
-    final result = await _auth.signInWithCredential(credential);
-    final isNew = result.additionalUserInfo?.isNewUser ?? false;
-    return (_userFromFirebase(result.user), isNew);
+    try {
+      final googleUser = await _googleSignIn.authenticate();
+      final googleAuth = googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        idToken: googleAuth.idToken,
+      );
+      final result = await _auth.signInWithCredential(credential);
+      final isNew = result.additionalUserInfo?.isNewUser ?? false;
+      return (_userFromFirebase(result.user), isNew);
+    } catch (error) {
+      throw AuthExceptionHandler.handleFirebaseAuthException(error);
+    }
   }
 
   /// Sign up with Google and return `(user, isNewUser)`.
   Future<(AppUser?, bool)> signUpWithGoogle(UserRole role) async {
-    final googleUser = await _googleSignIn.authenticate();
-    final googleAuth = googleUser.authentication;
-    final credential = GoogleAuthProvider.credential(
-      idToken: googleAuth.idToken,
-    );
-    final result = await _auth.signInWithCredential(credential);
-    final isNew = result.additionalUserInfo?.isNewUser ?? false;
-    return (_userFromFirebase(result.user, role: role), isNew);
+    try {
+      final googleUser = await _googleSignIn.authenticate();
+      final googleAuth = googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        idToken: googleAuth.idToken,
+      );
+      final result = await _auth.signInWithCredential(credential);
+      final isNew = result.additionalUserInfo?.isNewUser ?? false;
+      return (_userFromFirebase(result.user, role: role), isNew);
+    } catch (error) {
+      throw AuthExceptionHandler.handleFirebaseAuthException(error);
+    }
   }
 
   Future<void> signOut() async {
     await _auth.signOut();
     await _googleSignIn.signOut();
+  }
+
+  /// Sends a password reset email to the given email address.
+  ///
+  /// Throws [AuthException] with user-friendly error messages.
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } on FirebaseAuthException catch (error) {
+      // Use specific password reset exception for user-not-found in this context
+      if (error.code == 'user-not-found') {
+        throw const PasswordResetEmailNotFoundException();
+      }
+      throw AuthExceptionHandler.handleFirebaseAuthException(error);
+    } catch (error) {
+      throw AuthExceptionHandler.handleFirebaseAuthException(error);
+    }
   }
 
   AppUser? _userFromFirebase(User? user, {UserRole? role}) {

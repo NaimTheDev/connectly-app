@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_providers.dart';
 import '../models/app_user.dart';
-import '../services/auth_service.dart';
-import 'onboarding/onboarding_flow_screen.dart';
+import '../services/auth_exceptions.dart';
+import '../widgets/auth_error_widgets.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
@@ -17,13 +17,13 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   final _passwordController = TextEditingController();
   UserRole? _role;
   bool _loading = false;
-  String? _error;
+  AuthException? _error;
 
   Future<void> _signUp() async {
     setState(() => _loading = true);
     final authService = ref.read(authServiceProvider);
     try {
-      final (user, isNew) = await authService.signUpWithEmail(
+      await authService.signUpWithEmail(
         _emailController.text.trim(),
         _passwordController.text.trim(),
         _role!,
@@ -34,8 +34,10 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         // Just pop back to let the auth state change trigger proper routing
         Navigator.pop(context);
       }
+    } on AuthException catch (e) {
+      setState(() => _error = e);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = UnknownAuthException(e.toString()));
     } finally {
       setState(() => _loading = false);
     }
@@ -43,22 +45,26 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
   Future<void> _signUpWithGoogle() async {
     if (_role == null) {
-      setState(() => _error = 'Please select a role first');
+      setState(
+        () => _error = const UnknownAuthException('Please select a role first'),
+      );
       return;
     }
 
     setState(() => _loading = true);
     final authService = ref.read(authServiceProvider);
     try {
-      final (user, isNew) = await authService.signUpWithGoogle(_role!);
+      await authService.signUpWithGoogle(_role!);
       setState(() => _error = null);
       if (mounted) {
         // Let AuthGate handle routing based on onboarding status
         // Just pop back to let the auth state change trigger proper routing
         Navigator.pop(context);
       }
+    } on AuthException catch (e) {
+      setState(() => _error = e);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = UnknownAuthException(e.toString()));
     } finally {
       setState(() => _loading = false);
     }
@@ -95,12 +101,17 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 decoration: const InputDecoration(labelText: 'Role'),
               ),
               if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(color: Colors.red),
-                  ),
+                AuthErrorCard(
+                  error: _error!,
+                  onRetry: () {
+                    setState(() => _error = null);
+                    if (_emailController.text.isNotEmpty &&
+                        _passwordController.text.isNotEmpty &&
+                        _role != null) {
+                      _signUp();
+                    }
+                  },
+                  onDismiss: () => setState(() => _error = null),
                 ),
               ElevatedButton(
                 onPressed: _loading || _role == null ? null : _signUp,

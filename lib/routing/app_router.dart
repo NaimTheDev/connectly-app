@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../screens/screens.dart';
 import '../screens/onboarding/onboarding_flow_screen.dart';
+import '../screens/password_reset_screen.dart';
 import '../models/chat.dart';
 
 /// Arguments for ChatScreen navigation
@@ -25,6 +26,7 @@ class AppRouter {
   static const String settings = '/settings';
   static const String signIn = '/signin';
   static const String signUp = '/signup';
+  static const String passwordReset = '/password-reset';
   static const String mentorDetail = '/mentor';
   static const String chat = '/chat';
   static const String onboarding = '/onboarding';
@@ -32,6 +34,7 @@ class AppRouter {
   static Map<String, WidgetBuilder> get routes => {
     signIn: (context) => const SignInScreen(),
     signUp: (context) => const SignUpScreen(),
+    passwordReset: (context) => const PasswordResetScreen(),
     onboarding: (context) => const OnboardingFlowScreen(),
   };
 
@@ -45,6 +48,11 @@ class AppRouter {
       case signUp:
         return MaterialPageRoute(
           builder: (context) => const SignUpScreen(),
+          settings: settings,
+        );
+      case passwordReset:
+        return MaterialPageRoute(
+          builder: (context) => const PasswordResetScreen(),
           settings: settings,
         );
       case chat:
