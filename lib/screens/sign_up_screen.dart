@@ -19,7 +19,15 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   bool _loading = false;
   AuthException? _error;
 
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
   Future<void> _signUp() async {
+    if (!mounted) return;
     setState(() => _loading = true);
     final authService = ref.read(authServiceProvider);
     try {
@@ -28,45 +36,61 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         _passwordController.text.trim(),
         _role!,
       );
-      setState(() => _error = null);
       if (mounted) {
+        setState(() => _error = null);
         // Let AuthGate handle routing based on onboarding status
         // Just pop back to let the auth state change trigger proper routing
         Navigator.pop(context);
       }
     } on AuthException catch (e) {
-      setState(() => _error = e);
+      if (mounted) {
+        setState(() => _error = e);
+      }
     } catch (e) {
-      setState(() => _error = UnknownAuthException(e.toString()));
+      if (mounted) {
+        setState(() => _error = UnknownAuthException(e.toString()));
+      }
     } finally {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
   Future<void> _signUpWithGoogle() async {
     if (_role == null) {
-      setState(
-        () => _error = const UnknownAuthException('Please select a role first'),
-      );
+      if (mounted) {
+        setState(
+          () =>
+              _error = const UnknownAuthException('Please select a role first'),
+        );
+      }
       return;
     }
 
+    if (!mounted) return;
     setState(() => _loading = true);
     final authService = ref.read(authServiceProvider);
     try {
       await authService.signUpWithGoogle(_role!);
-      setState(() => _error = null);
       if (mounted) {
+        setState(() => _error = null);
         // Let AuthGate handle routing based on onboarding status
         // Just pop back to let the auth state change trigger proper routing
         Navigator.pop(context);
       }
     } on AuthException catch (e) {
-      setState(() => _error = e);
+      if (mounted) {
+        setState(() => _error = e);
+      }
     } catch (e) {
-      setState(() => _error = UnknownAuthException(e.toString()));
+      if (mounted) {
+        setState(() => _error = UnknownAuthException(e.toString()));
+      }
     } finally {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -97,21 +121,31 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                           DropdownMenuItem(value: role, child: Text(role.name)),
                     )
                     .toList(),
-                onChanged: (role) => setState(() => _role = role),
+                onChanged: (role) {
+                  if (mounted) {
+                    setState(() => _role = role);
+                  }
+                },
                 decoration: const InputDecoration(labelText: 'Role'),
               ),
               if (_error != null)
                 AuthErrorCard(
                   error: _error!,
                   onRetry: () {
-                    setState(() => _error = null);
-                    if (_emailController.text.isNotEmpty &&
-                        _passwordController.text.isNotEmpty &&
-                        _role != null) {
-                      _signUp();
+                    if (mounted) {
+                      setState(() => _error = null);
+                      if (_emailController.text.isNotEmpty &&
+                          _passwordController.text.isNotEmpty &&
+                          _role != null) {
+                        _signUp();
+                      }
                     }
                   },
-                  onDismiss: () => setState(() => _error = null),
+                  onDismiss: () {
+                    if (mounted) {
+                      setState(() => _error = null);
+                    }
+                  },
                 ),
               ElevatedButton(
                 onPressed: _loading || _role == null ? null : _signUp,

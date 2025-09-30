@@ -329,13 +329,21 @@ class _MentorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final brand = Theme.of(context).extension<AppBrand>()!;
 
-    // Define colors using existing theme colors
-    final cardColors = [
-      brand.softGrey, // Light grey
-      brand.brand.withValues(alpha: 0.2), // Light brand color
-      brand.graphite.withValues(alpha: 0.1), // Very light graphite
-      brand.slate.withValues(alpha: 0.1), // Very light slate
-    ];
+    // Define colors using theme-appropriate colors for device compatibility
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColors = isDark
+        ? [
+            brand.surfaceElevated, // Use theme surface
+            brand.brand.withValues(alpha: 0.15), // Subtle brand
+            brand.accentPurple.withValues(alpha: 0.1), // Subtle purple
+            brand.info.withValues(alpha: 0.1), // Subtle info
+          ]
+        : [
+            brand.surfaceAlt, // Light theme surface alt
+            brand.brand.withValues(alpha: 0.08), // Very subtle brand
+            brand.accentPurple.withValues(alpha: 0.06), // Very subtle purple
+            brand.info.withValues(alpha: 0.06), // Very subtle info
+          ];
 
     final cardColor = cardColors[cardIndex % cardColors.length];
 
@@ -354,7 +362,12 @@ class _MentorCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: cardColor,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: brand.softGrey, width: 0.5),
+            border: Border.all(
+              color: isDark
+                  ? brand.graphite.withValues(alpha: 0.4)
+                  : brand.softGrey.withValues(alpha: 0.8),
+              width: 1,
+            ),
           ),
           child: Row(
             children: [

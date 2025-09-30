@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/mentor.dart';
 import '../models/service_type.dart';
 import '../providers/mentors_providers.dart';
@@ -635,27 +636,56 @@ class MentorDetailScreen extends ConsumerWidget {
     Mentor mentor,
   ) async {
     try {
-      final firebaseUser = ref.read(firebaseUserStreamProvider).value;
+      // Use FirebaseAuth.instance.currentUser for reliable, synchronous access
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+
+      // Log authentication status
+      print(
+        '🔐 AUTH CHECK: User is ${firebaseUser != null ? 'authenticated' : 'not authenticated'}',
+      );
+      if (firebaseUser != null) {
+        print('🔐 User ID: ${firebaseUser.uid}');
+        print('🔐 User Email: ${firebaseUser.email}');
+        print('🔐 User Display Name: ${firebaseUser.displayName}');
+      }
+
       if (firebaseUser == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please sign in to start a chat'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        print('❌ CHAT CREATION FAILED: User not authenticated');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please sign in to start a chat'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
         return;
       }
 
+      // Log chat creation attempt details
+      print('💬 STARTING CHAT CREATION:');
+      print('💬 Mentor ID: ${mentor.id}');
+      print('💬 Mentee ID: ${firebaseUser.uid}');
+      print('💬 Chat ID will be: ${firebaseUser.uid}_${mentor.id}');
+
       // Show loading indicator
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) =>
+              const Center(child: CircularProgressIndicator()),
+        );
+      }
 
       // Create or find existing chat using the provider
+      print('💬 Calling createOrFindChat...');
       final createOrFindChat = ref.watch(createOrFindChatProvider);
       final chat = await createOrFindChat(mentor.id, firebaseUser.uid);
+
+      print(
+        '✅ CHAT CREATION SUCCESS: Chat created/found with ID: ${chat.chatId}',
+      );
 
       // Hide loading indicator
       if (context.mounted) {
@@ -673,17 +703,52 @@ class MentorDetailScreen extends ConsumerWidget {
           ),
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      // Log the full error details
+      print('❌ CHAT CREATION ERROR:');
+      print('❌ Error Type: ${e.runtimeType}');
+      print('❌ Error Message: $e');
+      print('❌ Stack Trace: $stackTrace');
+
       // Hide loading indicator if still showing
       if (context.mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
 
       if (context.mounted) {
+        // Show the actual error in development, user-friendly message in production
+        const bool isDebugMode =
+            true; // You can make this dynamic based on build mode
+
+        String errorMessage;
+        if (isDebugMode) {
+          errorMessage = 'DEBUG: $e'; // Show actual error in debug
+        } else if (e.toString().contains('Permission denied')) {
+          errorMessage =
+              'Unable to start chat. Please ensure you\'re signed in and try again.';
+        } else if (e.toString().contains('Network error')) {
+          errorMessage =
+              'Network connection issue. Please check your internet and try again.';
+        } else if (e.toString().contains('User not authenticated')) {
+          errorMessage = 'Please sign in again to start a chat.';
+        } else {
+          errorMessage = 'Failed to start chat. Please try again.';
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to start chat: $e'),
+            content: Text(errorMessage),
             backgroundColor: Colors.red,
+            duration: const Duration(
+              seconds: 6,
+            ), // Longer duration for debug messages
+            action: SnackBarAction(
+              label: 'Dismiss',
+              textColor: Colors.white,
+              onPressed: () {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              },
+            ),
           ),
         );
       }

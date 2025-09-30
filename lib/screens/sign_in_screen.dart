@@ -18,7 +18,15 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   bool _loading = false;
   AuthException? _error;
 
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
   Future<void> _signInWithEmail() async {
+    if (!mounted) return;
     setState(() => _loading = true);
     final authService = ref.read(authServiceProvider);
     try {
@@ -26,34 +34,51 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
-      setState(() => _error = null);
+      if (mounted) {
+        setState(() => _error = null);
+      }
     } on AuthException catch (e) {
-      setState(() => _error = e);
+      if (mounted) {
+        setState(() => _error = e);
+      }
     } catch (e) {
-      setState(() => _error = UnknownAuthException(e.toString()));
+      if (mounted) {
+        setState(() => _error = UnknownAuthException(e.toString()));
+      }
     } finally {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
   Future<void> _signInWithGoogle() async {
+    if (!mounted) return;
     setState(() => _loading = true);
     final authService = ref.read(authServiceProvider);
     try {
       final (user, isNew) = await authService.signInWithGoogle();
-      setState(() => _error = null);
-      if (mounted && isNew && user != null) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const OnboardingFlowScreen()),
-          (route) => false,
-        );
+      if (mounted) {
+        setState(() => _error = null);
+        if (isNew && user != null) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const OnboardingFlowScreen()),
+            (route) => false,
+          );
+        }
       }
     } on AuthException catch (e) {
-      setState(() => _error = e);
+      if (mounted) {
+        setState(() => _error = e);
+      }
     } catch (e) {
-      setState(() => _error = UnknownAuthException(e.toString()));
+      if (mounted) {
+        setState(() => _error = UnknownAuthException(e.toString()));
+      }
     } finally {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -80,13 +105,19 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                 AuthErrorCard(
                   error: _error!,
                   onRetry: () {
-                    setState(() => _error = null);
-                    if (_emailController.text.isNotEmpty &&
-                        _passwordController.text.isNotEmpty) {
-                      _signInWithEmail();
+                    if (mounted) {
+                      setState(() => _error = null);
+                      if (_emailController.text.isNotEmpty &&
+                          _passwordController.text.isNotEmpty) {
+                        _signInWithEmail();
+                      }
                     }
                   },
-                  onDismiss: () => setState(() => _error = null),
+                  onDismiss: () {
+                    if (mounted) {
+                      setState(() => _error = null);
+                    }
+                  },
                 ),
               ElevatedButton(
                 onPressed: _loading ? null : _signInWithEmail,

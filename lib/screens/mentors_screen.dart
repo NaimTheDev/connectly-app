@@ -188,11 +188,17 @@ class _MentorListCard extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return Card(
-      elevation: 0,
+      elevation: Theme.of(context).brightness == Brightness.dark ? 1 : 0,
       margin: EdgeInsets.zero,
+      color: Theme.of(context).colorScheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: brand.softGrey, width: 1),
+        side: BorderSide(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? brand.graphite.withValues(alpha: 0.4)
+              : brand.softGrey.withValues(alpha: 0.8),
+          width: 1,
+        ),
       ),
       child: InkWell(
         onTap: () {

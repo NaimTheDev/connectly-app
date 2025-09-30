@@ -150,7 +150,9 @@ class ConnectlyTheme {
   static const _warning = Color(0xFFEDB200);
   static const _danger = Color(0xFFE53935);
   static const _info = Color(0xFF2F80ED);
-  static const _surfaceAltLight = Color(0xFFF4F6F9); // subtle alt surface
+  static const _surfaceAltLight = Color(
+    0xFFF8F9FA,
+  ); // improved alt surface for devices
   static const _surfaceElevatedLight = Color(0xFFFFFFFF);
   static const _overlayLight = Color(0x990F0F12); // semi-transparent ink
 
@@ -196,7 +198,7 @@ class ConnectlyTheme {
         margin: const EdgeInsets.all(12),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: _softGrey),
+          side: BorderSide(color: _softGrey.withOpacity(0.8), width: 1),
         ),
       ),
       buttonTheme: const ButtonThemeData(),
@@ -286,11 +288,11 @@ class ConnectlyTheme {
       ),
       cardTheme: CardThemeData(
         color: colorScheme.surface,
-        elevation: 0,
+        elevation: 1,
         margin: const EdgeInsets.all(12),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: _graphite),
+          side: BorderSide(color: _graphite.withOpacity(0.6), width: 1),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
