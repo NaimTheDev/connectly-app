@@ -1,5 +1,4 @@
 import 'package:connectly_app/theme/theme.dart';
-import 'package:connectly_app/widgets/spacers.dart';
 import 'package:flutter/material.dart';
 
 class BrandChip extends StatelessWidget {

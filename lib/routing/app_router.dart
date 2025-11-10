@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../screens/screens.dart';
 import '../screens/onboarding/onboarding_flow_screen.dart';
-import '../screens/password_reset_screen.dart';
 import '../models/chat.dart';
 
 /// Arguments for ChatScreen navigation

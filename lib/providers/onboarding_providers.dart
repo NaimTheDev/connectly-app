@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/onboarding_state.dart';
 import '../models/app_user.dart';
-import '../models/mentor.dart';
 import '../models/service_type.dart';
 
 /// Provider for onboarding service
