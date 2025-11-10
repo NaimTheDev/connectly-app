@@ -35,6 +35,25 @@ class ChatWithLatestMessage {
   const ChatWithLatestMessage({required this.chat, this.latestMessage});
 }
 
+typedef DeleteChatCallback = Future<void> Function(String chatId);
+
+/// Deletes a chat and all nested message documents.
+final deleteChatProvider = Provider<DeleteChatCallback>((ref) {
+  return (chatId) async {
+    final firestore = FirebaseFirestore.instance;
+    final chatRef = firestore.collection('chats').doc(chatId);
+    final messagesSnapshot = await chatRef.collection('messages').get();
+
+    final batch = firestore.batch();
+    for (final doc in messagesSnapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    batch.delete(chatRef);
+
+    await batch.commit();
+  };
+});
+
 /// Enhanced provider that combines chat data with latest messages
 final chatsWithLatestMessageProvider =
     FutureProvider.family<List<ChatWithLatestMessage>, String>((

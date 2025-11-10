@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import '../providers/chats/chats_providers.dart';
 import '../providers/auth_providers.dart';
 import '../providers/mentors_providers.dart';
@@ -44,6 +45,7 @@ class MessagesScreen extends ConsumerWidget {
               );
             }
 
+            final deleteChat = ref.read(deleteChatProvider);
             final chatsAsync = ref.watch(chatsStreamProvider(firebaseUser.uid));
 
             return chatsAsync.when(
@@ -78,17 +80,20 @@ class MessagesScreen extends ConsumerWidget {
                   );
                 }
 
-                return ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: chatsWithMessages.length,
-                  separatorBuilder: (context, index) => Spacers.h8,
-                  itemBuilder: (context, index) {
-                    final chatWithMessage = chatsWithMessages[index];
-                    return _ChatListItem(
-                      chatWithMessage: chatWithMessage,
-                      currentUserId: firebaseUser.uid,
-                    );
-                  },
+                return SlidableAutoCloseBehavior(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: chatsWithMessages.length,
+                    separatorBuilder: (context, index) => Spacers.h8,
+                    itemBuilder: (context, index) {
+                      final chatWithMessage = chatsWithMessages[index];
+                      return _ChatListItem(
+                        chatWithMessage: chatWithMessage,
+                        currentUserId: firebaseUser.uid,
+                        onDeleteChat: deleteChat,
+                      );
+                    },
+                  ),
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -131,10 +136,12 @@ class MessagesScreen extends ConsumerWidget {
 class _ChatListItem extends ConsumerWidget {
   final ChatWithLatestMessage chatWithMessage;
   final String currentUserId;
+  final DeleteChatCallback onDeleteChat;
 
   const _ChatListItem({
     required this.chatWithMessage,
     required this.currentUserId,
+    required this.onDeleteChat,
   });
 
   @override
@@ -206,119 +213,189 @@ class _ChatListItem extends ConsumerWidget {
           : latestMessage.message;
     }
 
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: brand.softGrey, width: 1),
-      ),
-      child: InkWell(
-        onTap: () {
-          // Navigate to individual chat screen
-          Navigator.of(context).pushNamed(
-            AppRouter.chat,
-            arguments: ChatScreenArguments(
-              chat: chat,
-              otherParticipantId: otherUserId,
-              otherParticipantName: otherParticipant?.name,
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              // Avatar
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: brand.brand.withOpacity(0.1),
-                backgroundImage: otherParticipant?.imageUrl != null
-                    ? NetworkImage(otherParticipant!.imageUrl!)
-                    : null,
-                child: otherParticipant?.imageUrl == null
-                    ? Icon(Icons.person, color: brand.brand, size: 24)
-                    : null,
-              ),
-              Spacers.w12,
-
-              // Chat info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Name and timestamp row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            otherParticipant?.name ?? 'Unknown User',
-                            style: textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: brand.ink,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+    return Slidable(
+      key: ValueKey(chat.chatId),
+      endActionPane: ActionPane(
+        motion: const DrawerMotion(),
+        extentRatio: 0.22,
+        children: [
+          SlidableAction(
+            onPressed: (actionContext) async {
+              final confirmed =
+                  await showDialog<bool>(
+                    context: actionContext,
+                    builder: (dialogContext) => AlertDialog(
+                      title: const Text('Delete Chat'),
+                      content: const Text(
+                        'Are you sure you want to delete this chat? '
+                        'This will remove the chat and all messages.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () =>
+                              Navigator.of(dialogContext).pop(false),
+                          child: const Text('Cancel'),
                         ),
-                        if (timeDisplay.isNotEmpty) ...[
-                          Spacers.w8,
-                          Text(
-                            timeDisplay,
-                            style: textTheme.bodySmall?.copyWith(
-                              color: brand.graphite.withOpacity(0.7),
-                            ),
+                        TextButton(
+                          onPressed: () =>
+                              Navigator.of(dialogContext).pop(true),
+                          style: TextButton.styleFrom(
+                            foregroundColor: brand.danger,
                           ),
-                        ],
+                          child: const Text('Delete'),
+                        ),
                       ],
                     ),
+                  ) ??
+                  false;
 
-                    if (messagePreview.isNotEmpty) ...[
-                      Spacers.h4,
+              if (!confirmed) {
+                if (!actionContext.mounted) return;
+                Slidable.of(actionContext)?.close();
+                return;
+              }
+
+              try {
+                await onDeleteChat(chat.chatId);
+                if (!actionContext.mounted) return;
+                ScaffoldMessenger.of(actionContext).showSnackBar(
+                  SnackBar(
+                    content: const Text('Chat deleted'),
+                    backgroundColor: brand.danger,
+                  ),
+                );
+              } catch (error) {
+                if (!actionContext.mounted) return;
+                ScaffoldMessenger.of(actionContext).showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to delete chat: $error'),
+                    backgroundColor: brand.danger,
+                  ),
+                );
+              }
+            },
+            backgroundColor: brand.danger,
+            foregroundColor: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            icon: Icons.delete,
+            label: 'Delete',
+          ),
+        ],
+      ),
+      child: Card(
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: brand.softGrey, width: 1),
+        ),
+        child: InkWell(
+          onTap: () {
+            // Navigate to individual chat screen
+            Navigator.of(context).pushNamed(
+              AppRouter.chat,
+              arguments: ChatScreenArguments(
+                chat: chat,
+                otherParticipantId: otherUserId,
+                otherParticipantName: otherParticipant?.name,
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Avatar
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: brand.brand.withOpacity(0.1),
+                  backgroundImage: otherParticipant?.imageUrl != null
+                      ? NetworkImage(otherParticipant!.imageUrl!)
+                      : null,
+                  child: otherParticipant?.imageUrl == null
+                      ? Icon(Icons.person, color: brand.brand, size: 24)
+                      : null,
+                ),
+                Spacers.w12,
+
+                // Chat info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Name and timestamp row
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          // Show "You:" if current user sent the message
-                          if (latestMessage?.senderId == currentUserId)
-                            Text(
-                              'You: ',
-                              style: textTheme.bodyMedium?.copyWith(
-                                color: brand.graphite.withOpacity(0.8),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
                           Expanded(
                             child: Text(
-                              messagePreview,
-                              style: textTheme.bodyMedium?.copyWith(
-                                color: brand.graphite.withOpacity(0.8),
+                              otherParticipant?.name ?? 'Unknown User',
+                              style: textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: brand.ink,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          if (timeDisplay.isNotEmpty) ...[
+                            Spacers.w8,
+                            Text(
+                              timeDisplay,
+                              style: textTheme.bodySmall?.copyWith(
+                                color: brand.graphite.withOpacity(0.7),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
-                    ] else ...[
-                      Spacers.h4,
-                      Text(
-                        'No messages yet',
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: brand.graphite.withOpacity(0.6),
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
 
-              // Chevron icon
-              Icon(
-                Icons.chevron_right,
-                color: brand.graphite.withOpacity(0.4),
-                size: 20,
-              ),
-            ],
+                      if (messagePreview.isNotEmpty) ...[
+                        Spacers.h4,
+                        Row(
+                          children: [
+                            // Show "You:" if current user sent the message
+                            if (latestMessage?.senderId == currentUserId)
+                              Text(
+                                'You: ',
+                                style: textTheme.bodyMedium?.copyWith(
+                                  color: brand.graphite.withOpacity(0.8),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            Expanded(
+                              child: Text(
+                                messagePreview,
+                                style: textTheme.bodyMedium?.copyWith(
+                                  color: brand.graphite.withOpacity(0.8),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ] else ...[
+                        Spacers.h4,
+                        Text(
+                          'No messages yet',
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: brand.graphite.withOpacity(0.6),
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
+                // Chevron icon
+                Icon(
+                  Icons.chevron_right,
+                  color: brand.graphite.withOpacity(0.4),
+                  size: 20,
+                ),
+              ],
+            ),
           ),
         ),
       ),
