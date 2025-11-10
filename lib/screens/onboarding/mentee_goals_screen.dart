@@ -168,7 +168,7 @@ class _MenteeGoalsScreenState extends ConsumerState<MenteeGoalsScreen>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Your learning goals',
+                              'Your Goals on Connectly',
                               style: textTheme.headlineSmall?.copyWith(
                                 color: brand.ink,
                                 fontWeight: FontWeight.bold,
@@ -218,7 +218,7 @@ class _MenteeGoalsScreenState extends ConsumerState<MenteeGoalsScreen>
 
                           // Goals field
                           Text(
-                            'Career Goals *',
+                            'Tell us what you want to achieve',
                             style: textTheme.titleSmall?.copyWith(
                               color: brand.ink,
                               fontWeight: FontWeight.w600,
@@ -229,7 +229,7 @@ class _MenteeGoalsScreenState extends ConsumerState<MenteeGoalsScreen>
                             controller: _goalsController,
                             decoration: const InputDecoration(
                               hintText:
-                                  'Describe what you want to achieve in your career...',
+                                  'Example: I want to grow my business, learn a new skill, or find clarity in my next steps.',
                             ),
                             maxLines: 4,
                             maxLength: 300,
