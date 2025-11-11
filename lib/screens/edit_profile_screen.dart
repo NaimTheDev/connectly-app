@@ -142,6 +142,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               ? null
               : _calendlyUrlController.text.trim(),
           'categories': _selectedCategories,
+          'isHidden': false,
         };
 
         if (_selectedService != null) {

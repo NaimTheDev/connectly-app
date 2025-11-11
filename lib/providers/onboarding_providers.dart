@@ -333,6 +333,7 @@ class OnboardingService {
           'virtualAppointmentPrice': currentState.virtualAppointmentPrice,
           'chatPrice': currentState.chatPrice,
           'isCalendlySetup': currentState.isCalendlySetup,
+          'isHidden': false,
         };
 
         print('📝 BATCH OPERATION 2: SET mentors/$userId');

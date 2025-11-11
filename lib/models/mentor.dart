@@ -21,6 +21,7 @@ class Mentor {
   final double? virtualAppointmentPrice;
   final double? chatPrice;
   final bool isCalendlySetup;
+  final bool? isHidden;
 
   const Mentor({
     required this.id,
@@ -39,6 +40,7 @@ class Mentor {
     this.virtualAppointmentPrice,
     this.chatPrice,
     this.isCalendlySetup = false,
+    this.isHidden,
   });
 
   /// Creates a Mentor from a Firestore map and document ID.
@@ -65,6 +67,7 @@ class Mentor {
           ?.toDouble(),
       chatPrice: (data['chatPrice'] as num?)?.toDouble(),
       isCalendlySetup: data['isCalendlySetup'] ?? false,
+      isHidden: data['isHidden'],
     );
   }
 

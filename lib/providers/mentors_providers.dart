@@ -4,7 +4,10 @@ import '../models/mentor.dart';
 
 /// Public mentors list (readable by anyone)
 final mentorsProvider = FutureProvider<List<Mentor>>((ref) async {
-  final snapshot = await FirebaseFirestore.instance.collection('mentors').get();
+  final snapshot = await FirebaseFirestore.instance
+      .collection('mentors')
+      .where('isHidden', isEqualTo: false)
+      .get();
   return snapshot.docs.map((doc) {
     final data = doc.data();
     return Mentor(
