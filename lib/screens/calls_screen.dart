@@ -308,7 +308,7 @@ class _CallCard extends StatelessWidget {
 
               // Invitee name
               Text(
-                'Call with ${call.inviteeName.isNotEmpty ? call.inviteeName : "Mentor"}',
+                "Call with ${call.inviteeName.isNotEmpty ? call.inviteeName : 'Mentee'}${call.mentorName != null ? ' and ${call.mentorName}' : ''}",
                 style: textTheme.bodyLarge?.copyWith(
                   color: brand.graphite,
                   fontWeight: FontWeight.w500,

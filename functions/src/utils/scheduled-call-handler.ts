@@ -6,19 +6,21 @@ import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import {Timestamp} from 'firebase-admin/firestore';
 import {CalendlyWebhookEvent, CalendlyWebhookPayload, CalendlyEventType, ScheduledCallData} from '../types/calendly';
-import {extractMentorUri} from './user-lookup';
+import {extractMentorUri, findUserById} from './user-lookup';
 
 /**
  * Maps Calendly webhook data to ScheduledCall Firestore document format
  * @param webhookPayload - The Calendly webhook payload
  * @param eventType - The webhook event type
+ * @param mentorId - Optional mentor user ID to fetch mentor name
  * @returns The mapped ScheduledCallData object
  */
-export function mapCalendlyToScheduledCall(webhookPayload: CalendlyWebhookPayload, eventType: string): ScheduledCallData {
+export async function mapCalendlyToScheduledCall(webhookPayload: CalendlyWebhookPayload, eventType: string, mentorId?: string): Promise<ScheduledCallData> {
   logger.info('🔄 Starting mapCalendlyToScheduledCall', {
     eventType,
     hasScheduledEvent: !!webhookPayload.scheduled_event,
-    payloadKeys: Object.keys(webhookPayload)
+    payloadKeys: Object.keys(webhookPayload),
+    mentorId
   });
 
   try {
@@ -38,6 +40,18 @@ export function mapCalendlyToScheduledCall(webhookPayload: CalendlyWebhookPayloa
       inviteeName: webhookPayload.name
     });
 
+    // Fetch mentor name if mentorId is provided
+    let mentorName = '';
+    if (mentorId && mentorId.trim() !== '') {
+      const mentorData = await findUserById(mentorId);
+      mentorName = mentorData?.name || mentorData?.displayName || '';
+      logger.info('📝 Fetched mentor name', {
+        mentorId,
+        mentorName,
+        hasMentorData: !!mentorData
+      });
+    }
+
     const mappedData = {
       calendlyEventUri: scheduled_event.uri,
       cancelUrl: webhookPayload.cancel_url,
@@ -47,6 +61,7 @@ export function mapCalendlyToScheduledCall(webhookPayload: CalendlyWebhookPayloa
       inviteeEmail: webhookPayload.email,
       inviteeName: webhookPayload.name,
       mentorUri: extractMentorUri(scheduled_event.event_memberships),
+      mentorName,
       rescheduleUrl: webhookPayload.reschedule_url,
       rescheduled: webhookPayload.rescheduled,
       startTime: scheduled_event.start_time,
@@ -58,7 +73,8 @@ export function mapCalendlyToScheduledCall(webhookPayload: CalendlyWebhookPayloa
     logger.info('✅ Successfully mapped Calendly data', {
       mappedDataKeys: Object.keys(mappedData),
       status: mappedData.status,
-      mentorUri: mappedData.mentorUri
+      mentorUri: mappedData.mentorUri,
+      mentorName: mappedData.mentorName
     });
 
     return mappedData;
@@ -198,6 +214,7 @@ export async function updateScheduledCall(
  */
 export async function handleInviteeCreated(
   userId: string,
+  mentorId: string,
   webhookPayload: CalendlyWebhookPayload,
   eventType: string
 ): Promise<string> {
@@ -220,18 +237,38 @@ export async function handleInviteeCreated(
 
   try {
     logger.info('🔧 Step 1: Mapping Calendly data to ScheduledCall format');
-    const scheduledCallData = mapCalendlyToScheduledCall(webhookPayload, eventType);
+    const scheduledCallData = await mapCalendlyToScheduledCall(webhookPayload, eventType, mentorId);
     
-    logger.info('🔧 Step 2: Creating scheduled call in Firestore');
-    const documentId = await createScheduledCall(userId, scheduledCallData);
+    logger.info('🔧 Step 2: Creating scheduled call in Firestore for both user and mentor');
+    
+    // Create scheduled call document for the user (invitee)
+    const userDocumentId = await createScheduledCall(userId, scheduledCallData);
+    logger.info('✅ Created scheduled call for user', {
+      userId,
+      documentId: userDocumentId
+    });
+    
+    // Create scheduled call document for the mentor (only if mentorId is provided)
+    let mentorDocumentId: string | undefined;
+    if (mentorId && mentorId.trim() !== '') {
+      mentorDocumentId = await createScheduledCall(mentorId, scheduledCallData);
+      logger.info('✅ Created scheduled call for mentor', {
+        mentorId,
+        documentId: mentorDocumentId
+      });
+    } else {
+      logger.warn('⚠️ MentorId is empty, skipping mentor scheduled call creation');
+    }
     
     logger.info('✅ Successfully completed handleInviteeCreated', {
       userId,
-      documentId,
+      mentorId: mentorId || 'none',
+      userDocumentId,
+      mentorDocumentId: mentorDocumentId || 'skipped',
       eventType
     });
     
-    return documentId;
+    return userDocumentId;
   } catch (error) {
     logger.error('❌ Error in handleInviteeCreated:', {
       userId,

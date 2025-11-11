@@ -28,6 +28,7 @@ final scheduledCallsProvider =
                 inviteeEmail: data['inviteeEmail'] ?? '',
                 inviteeName: data['inviteeName'] ?? '',
                 mentorUri: data['mentorUri'] ?? '',
+                mentorName: data['mentorName'],
                 payment: data['payment'],
                 reconfirmation: data['reconfirmation'],
                 rescheduleUrl: data['rescheduleUrl'] ?? '',
@@ -44,11 +45,25 @@ final scheduledCallsProvider =
                 final endTime = DateTime.parse(call.endTime);
                 return endTime.isAfter(now);
               } catch (e) {
+                print("could not parse because of " + e.toString());
                 // If parsing fails, exclude the call
                 return false;
               }
-            }),
+            })
+            .toList(),
       );
+
+      // Sort calls by endTime ascending (earliest first)
+      calls.sort((a, b) {
+        try {
+          final aEndTime = DateTime.parse(a.endTime);
+          final bEndTime = DateTime.parse(b.endTime);
+          return aEndTime.compareTo(bEndTime);
+        } catch (e) {
+          // If parsing fails, maintain current order
+          return 0;
+        }
+      });
 
       return calls;
     });

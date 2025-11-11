@@ -127,6 +127,7 @@ async function processWebhookEvent(
   correlationId: string
 ): Promise<{success: boolean; reason?: string; documentId?: string}> {
   const inviteeEmail = webhookPayload.email;
+  const mentorEmail = webhookPayload.scheduled_event.event_memberships[0].user_email?? "";
 
   // Validate email format
   if (!isValidEmail(inviteeEmail)) {
@@ -135,6 +136,7 @@ async function processWebhookEvent(
 
   // Find the user by email
   const userId = await getUserIdByEmail(inviteeEmail);
+  const mentorId = (await getUserIdByEmail(mentorEmail)) ?? '';
   if (!userId) {
     logger.info('User not found for email, skipping webhook', {
       correlationId,
@@ -146,7 +148,7 @@ async function processWebhookEvent(
   // Handle different event types
   switch (eventType) {
     case CalendlyEventType.INVITEE_CREATED:
-      return await handleInviteeCreatedEvent(userId, webhookPayload, eventType, correlationId);
+      return await handleInviteeCreatedEvent(userId, mentorId, webhookPayload, eventType, correlationId);
     
     case CalendlyEventType.INVITEE_CANCELED:
       return await handleInviteeCanceledEvent(userId, webhookPayload, correlationId);
@@ -165,6 +167,7 @@ async function processWebhookEvent(
  */
 async function handleInviteeCreatedEvent(
   userId: string,
+  mentorId: string,
   webhookPayload: CalendlyWebhookPayload,
   eventType: string,
   correlationId: string
@@ -184,7 +187,7 @@ async function handleInviteeCreatedEvent(
     }
 
     // Create the scheduled call
-    const documentId = await handleInviteeCreated(userId, webhookPayload, eventType);
+    const documentId = await handleInviteeCreated(userId,  mentorId, webhookPayload, eventType);
     
     return {success: true, documentId};
   } catch (error) {

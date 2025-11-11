@@ -205,25 +205,6 @@ class HomeScreen extends ConsumerWidget {
                                 // Main featured call card
                                 if (calls.isNotEmpty)
                                   _FeaturedCallCard(call: calls.first),
-                                if (calls.length > 1) ...[
-                                  Spacers.h16,
-                                  // Additional calls row
-                                  Row(
-                                    children: [
-                                      for (
-                                        int i = 1;
-                                        i < calls.length && i < 3;
-                                        i++
-                                      ) ...[
-                                        Expanded(
-                                          child: _SmallCallCard(call: calls[i]),
-                                        ),
-                                        if (i < calls.length - 1 && i < 2)
-                                          Spacers.w12,
-                                      ],
-                                    ],
-                                  ),
-                                ],
                               ],
                             ),
                       loading: () => const _LoadingOrEmpty(
@@ -467,7 +448,7 @@ class _FeaturedCallCard extends StatelessWidget {
 
     // Determine display name (mentor vs invitee). We only have inviteeName here; keep label generic.
     final mentorName =
-        'Call with ${call.inviteeName.isNotEmpty ? call.inviteeName : "Mentor"}';
+        "Call with ${call.inviteeName.isNotEmpty ? call.inviteeName : 'Mentee'}${call.mentorName != null ? ' and ${call.mentorName}' : ''}";
 
     return Container(
       width: double.infinity,

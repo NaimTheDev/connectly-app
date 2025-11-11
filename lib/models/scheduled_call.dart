@@ -11,6 +11,7 @@ class ScheduledCall {
   final String inviteeEmail;
   final String inviteeName;
   final String mentorUri;
+  final String? mentorName;
   final String? payment;
   final String? reconfirmation;
   final String rescheduleUrl;
@@ -29,6 +30,7 @@ class ScheduledCall {
     required this.inviteeEmail,
     required this.inviteeName,
     required this.mentorUri,
+    this.mentorName,
     this.payment,
     this.reconfirmation,
     required this.rescheduleUrl,

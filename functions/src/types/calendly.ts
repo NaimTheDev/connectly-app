@@ -136,6 +136,7 @@ export interface ScheduledCallData {
   inviteeEmail: string;
   inviteeName: string;
   mentorUri: string;
+  mentorName: string;
   payment?: string;
   reconfirmation?: string;
   rescheduleUrl: string;

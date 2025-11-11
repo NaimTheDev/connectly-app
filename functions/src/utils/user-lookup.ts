@@ -41,6 +41,32 @@ export async function findUserByEmail(email: string): Promise<{
 }
 
 /**
+ * Looks up a Firebase user by user ID
+ * @param userId - The Firebase user ID to search for
+ * @returns The user document data, or null if not found
+ */
+export async function findUserById(userId: string): Promise<FirebaseFirestore.DocumentData | null> {
+  try {
+    const firestore = admin.firestore();
+    
+    const userDoc = await firestore
+      .collection('users')
+      .doc(userId)
+      .get();
+
+    if (!userDoc.exists) {
+      logger.info(`No user found with ID: ${userId}`);
+      return null;
+    }
+
+    return userDoc.data() || null;
+  } catch (error) {
+    logger.error(`Error looking up user by ID ${userId}:`, error);
+    return null;
+  }
+}
+
+/**
  * Alternative lookup using Firebase Auth (if users are stored in Auth only)
  * @param email - The email address to search for
  * @returns The Firebase Auth user record, or null if not found
