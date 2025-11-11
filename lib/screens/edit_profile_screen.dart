@@ -321,7 +321,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 Spacers.h32,
 
                 // Calendly URL Section
-                _SectionHeader(title: 'Calendar Integration', brand: brand),
+                _SectionHeader(title: 'Calendly Integration', brand: brand),
                 Spacers.h16,
 
                 _buildTextField(
