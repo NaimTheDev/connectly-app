@@ -9,6 +9,8 @@ import '../providers/chats/chat_creation_providers.dart';
 import '../routing/app_router.dart';
 import '../screens/home_screen.dart'; // For MentorAvatar
 import '../services/url_launcher_service.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:intl/intl.dart';
 import '../theme/theme.dart';
 import '../widgets/spacers.dart';
 import '../widgets/brand_chip.dart';
@@ -473,10 +475,7 @@ class MentorDetailScreen extends ConsumerWidget {
         // Schedule Call Button
         if (canScheduleCall)
           ElevatedButton.icon(
-            onPressed: () => UrlLauncherService.launchCalendlyUrl(
-              context,
-              mentor.calendlyUrl!,
-            ),
+            onPressed: () => _handleScheduleCall(context, ref, mentor),
             icon: const Icon(Icons.video_call),
             label: const Text('Schedule Call'),
             style: ElevatedButton.styleFrom(
@@ -682,7 +681,6 @@ class MentorDetailScreen extends ConsumerWidget {
         );
       }
     } catch (e) {
-      // Hide loading indicator if still showing
       if (context.mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
@@ -715,6 +713,139 @@ class MentorDetailScreen extends ConsumerWidget {
                 ScaffoldMessenger.of(context).hideCurrentSnackBar();
               },
             ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleScheduleCall(
+    BuildContext context,
+    WidgetRef ref,
+    Mentor mentor,
+  ) async {
+    if (mentor.inAppScheduling != true) {
+      if (mentor.calendlyUrl != null && mentor.calendlyUrl!.isNotEmpty) {
+        await UrlLauncherService.launchCalendlyUrl(
+          context,
+          mentor.calendlyUrl!,
+        );
+      }
+      return;
+    }
+
+    if (context.mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    try {
+      final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
+      final callable = functions.httpsCallable('availableTimes');
+
+      final result = await callable.call(<String, dynamic>{
+        'mentorId': mentor.id,
+      });
+
+      // Hide loading
+      if (context.mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      final data = result.data as Map<String, dynamic>?;
+      if (data == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No availability returned')),
+        );
+        return;
+      }
+
+      if (data.containsKey('error')) {
+        final msg = data['error']?.toString() ?? 'Failed to fetch availability';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), backgroundColor: Colors.red),
+        );
+        return;
+      }
+
+      final slots =
+          (data['availableTimeSlots'] as List<dynamic>?)
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList() ??
+          [];
+
+      if (slots.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No available times found')),
+        );
+        return;
+      }
+
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (context) {
+            final brand = Theme.of(context).extension<AppBrand>()!;
+            return AlertDialog(
+              title: const Text('Choose a time'),
+              content: SingleChildScrollView(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: slots.map((slot) {
+                    final iso = slot['start_time']?.toString() ?? '';
+                    DateTime? dt;
+                    try {
+                      dt = DateTime.parse(iso).toLocal();
+                    } catch (_) {}
+                    final dateFmt = DateFormat('EEE, MMM d • h:mm a');
+                    final label = dt != null ? dateFmt.format(dt) : iso;
+
+                    final schedulingUrl = slot['scheduling_url']?.toString();
+
+                    return InputChip(
+                      label: Text(label),
+
+                      selectedColor: brand.brand.withOpacity(0.15),
+                      backgroundColor: brand.surfaceAlt,
+                      labelStyle: TextStyle(color: brand.ink),
+                      onPressed: schedulingUrl != null
+                          ? () async {
+                              Navigator.of(context).pop();
+                              await UrlLauncherService.launchCalendlyUrl(
+                                context,
+                                schedulingUrl,
+                              );
+                            }
+                          : null,
+                    );
+                  }).toList(),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Close'),
+                ),
+              ],
+            );
+          },
+        );
+      }
+    } catch (e) {
+      // Hide loading if still showing
+      if (context.mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      final errorMessage = e.toString();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to fetch availability: $errorMessage'),
+            backgroundColor: Colors.red,
           ),
         );
       }
