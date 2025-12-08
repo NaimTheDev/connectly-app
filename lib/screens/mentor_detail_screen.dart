@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/mentor.dart';
 import '../models/service_type.dart';
+import '../models/calendly_invitee_resource.dart';
 import '../providers/mentors_providers.dart';
 import '../providers/auth_providers.dart';
 import '../providers/chats/chat_creation_providers.dart';
@@ -785,10 +786,12 @@ class MentorDetailScreen extends ConsumerWidget {
       }
 
       if (context.mounted) {
+        final rootContext = context;
         showDialog(
           context: context,
-          builder: (context) {
-            final brand = Theme.of(context).extension<AppBrand>()!;
+          builder: (dialogContext) {
+            final brand = Theme.of(dialogContext).extension<AppBrand>()!;
+            final textTheme = Theme.of(dialogContext).textTheme;
             return AlertDialog(
               title: const Text('Choose a time'),
               content: SingleChildScrollView(
@@ -803,21 +806,20 @@ class MentorDetailScreen extends ConsumerWidget {
                     } catch (_) {}
                     final dateFmt = DateFormat('EEE, MMM d • h:mm a');
                     final label = dt != null ? dateFmt.format(dt) : iso;
-
-                    final schedulingUrl = slot['scheduling_url']?.toString();
+                    final hasStartTime = iso.isNotEmpty;
 
                     return InputChip(
-                      label: Text(label),
-
+                      label: Text(label, style: textTheme.bodyMedium),
                       selectedColor: brand.brand.withOpacity(0.15),
                       backgroundColor: brand.surfaceAlt,
                       labelStyle: TextStyle(color: brand.ink),
-                      onPressed: schedulingUrl != null
+                      onPressed: hasStartTime
                           ? () async {
-                              Navigator.of(context).pop();
-                              await UrlLauncherService.launchCalendlyUrl(
-                                context,
-                                schedulingUrl,
+                              Navigator.of(dialogContext).pop();
+                              await _bookCalendlySlot(
+                                rootContext,
+                                mentor,
+                                slot,
                               );
                             }
                           : null,
@@ -850,5 +852,235 @@ class MentorDetailScreen extends ConsumerWidget {
         );
       }
     }
+  }
+
+  Future<void> _bookCalendlySlot(
+    BuildContext context,
+    Mentor mentor,
+    Map<String, dynamic> slot,
+  ) async {
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (firebaseUser == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please sign in to book a session'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    final startIso = slot['start_time']?.toString();
+    if (startIso == null || startIso.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Selected slot is invalid')),
+        );
+      }
+      return;
+    }
+
+    bool loadingShown = false;
+    void dismissLoading() {
+      if (loadingShown && context.mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+        loadingShown = false;
+      }
+    }
+
+    if (context.mounted) {
+      loadingShown = true;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) =>
+            const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    try {
+      final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
+      final callable = functions.httpsCallable('scheduleCalendlyInvitee');
+      final result = await callable.call(<String, dynamic>{
+        'mentorId': mentor.id,
+        'userId': firebaseUser.uid,
+        'startTime': startIso,
+      });
+
+      dismissLoading();
+
+      final raw = result.data;
+      if (raw is! Map) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Unexpected response from scheduling service'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final response = Map<String, dynamic>.from(
+        raw as Map<dynamic, dynamic>,
+      );
+
+      if (response['error'] != null) {
+        final msg = response['error']?.toString() ??
+            'Failed to schedule this session';
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(msg), backgroundColor: Colors.red),
+          );
+        }
+        return;
+      }
+
+      final resourceRaw = response['resource'];
+      if (resourceRaw is! Map) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Missing confirmation details from Calendly'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final invitee = CalendlyInviteeResource.fromMap(
+        Map<String, dynamic>.from(
+          resourceRaw as Map<dynamic, dynamic>,
+        ),
+      );
+
+      final scheduledDate = DateTime.tryParse(startIso)?.toLocal();
+      final dateLabel = scheduledDate != null
+          ? DateFormat('EEE, MMM d • h:mm a').format(scheduledDate)
+          : startIso;
+      final timezoneLabel =
+          invitee.timezone != null ? ' (${invitee.timezone})' : '';
+
+      if (context.mounted) {
+        await showDialog(
+          context: context,
+          builder: (dialogContext) {
+            final brand = Theme.of(dialogContext).extension<AppBrand>()!;
+            final textTheme = Theme.of(dialogContext).textTheme;
+            return AlertDialog(
+              title: const Text('Session Confirmed'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'You\'re booked with ${mentor.name}.',
+                    style: textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: brand.ink,
+                    ),
+                  ),
+                  Spacers.h16,
+                  _buildConfirmationRow(
+                    'Invitee',
+                    invitee.name,
+                    textTheme,
+                    brand,
+                  ),
+                  Spacers.h12,
+                  _buildConfirmationRow(
+                    'Email',
+                    invitee.email,
+                    textTheme,
+                    brand,
+                  ),
+                  Spacers.h12,
+                  _buildConfirmationRow(
+                    'Time',
+                    '$dateLabel$timezoneLabel',
+                    textTheme,
+                    brand,
+                  ),
+                  if (invitee.rescheduleUrl != null ||
+                      invitee.cancelUrl != null) ...[
+                    Spacers.h24,
+                    Text(
+                      'Need to make changes?',
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: brand.graphite,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                if (invitee.rescheduleUrl != null)
+                  TextButton(
+                    onPressed: () => UrlLauncherService.launchCalendlyUrl(
+                      dialogContext,
+                      invitee.rescheduleUrl!,
+                    ),
+                    child: const Text('Reschedule'),
+                  ),
+                if (invitee.cancelUrl != null)
+                  TextButton(
+                    onPressed: () => UrlLauncherService.launchCalendlyUrl(
+                      dialogContext,
+                      invitee.cancelUrl!,
+                    ),
+                    child: const Text('Cancel Session'),
+                  ),
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Close'),
+                ),
+              ],
+            );
+          },
+        );
+      }
+    } catch (e) {
+      dismissLoading();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Unable to book session: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildConfirmationRow(
+    String label,
+    String value,
+    TextTheme textTheme,
+    AppBrand brand,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: textTheme.labelSmall?.copyWith(
+            color: brand.graphite,
+            letterSpacing: 0.2,
+          ),
+        ),
+        Text(
+          value,
+          style: textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: brand.ink,
+          ),
+        ),
+      ],
+    );
   }
 }
