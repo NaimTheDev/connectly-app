@@ -146,3 +146,63 @@ export interface ScheduledCallData {
   timezone: string;
   joinUrl?: string;
 }
+
+export interface CalendlyInviteeTracking {
+  utm_campaign?: string;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_content?: string;
+  utm_term?: string;
+  salesforce_uuid?: string;
+}
+
+export interface CalendlyInviteePayment {
+  external_id?: string;
+  provider?: string;
+  amount?: number;
+  currency?: string;
+  terms?: string;
+  successful?: boolean;
+}
+
+export interface CalendlyNoShow {
+  uri: string;
+  created_at: string;
+}
+
+export interface CalendlyReconfirmation {
+  created_at: string;
+  confirmed_at?: string;
+}
+
+export interface CalendlyInviteeResource {
+  uri: string;
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  name: string;
+  status: string;
+  questions_and_answers: QuestionAnswer[];
+  timezone?: string;
+  event: string;
+  created_at: string;
+  updated_at: string;
+  tracking?: CalendlyInviteeTracking | null;
+  text_reminder_number?: string | null;
+  rescheduled?: boolean;
+  old_invitee?: string | null;
+  new_invitee?: string | null;
+  cancel_url?: string | null;
+  reschedule_url?: string | null;
+  routing_form_submission?: string | null;
+  cancellation?: CalendlyCancellation;
+  payment?: CalendlyInviteePayment;
+  no_show?: CalendlyNoShow;
+  reconfirmation?: CalendlyReconfirmation;
+  scheduling_method?: string;
+  invitee_scheduled_by?: string | null;
+}
+
+export interface CalendlyInviteeResponse {
+  resource: CalendlyInviteeResource;
+}

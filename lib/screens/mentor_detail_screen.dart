@@ -3,12 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/mentor.dart';
 import '../models/service_type.dart';
+import '../models/calendly_invitee_resource.dart';
 import '../providers/mentors_providers.dart';
 import '../providers/auth_providers.dart';
 import '../providers/chats/chat_creation_providers.dart';
 import '../routing/app_router.dart';
 import '../screens/home_screen.dart'; // For MentorAvatar
 import '../services/url_launcher_service.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:intl/intl.dart';
 import '../theme/theme.dart';
 import '../widgets/spacers.dart';
 import '../widgets/brand_chip.dart';
@@ -473,10 +476,7 @@ class MentorDetailScreen extends ConsumerWidget {
         // Schedule Call Button
         if (canScheduleCall)
           ElevatedButton.icon(
-            onPressed: () => UrlLauncherService.launchCalendlyUrl(
-              context,
-              mentor.calendlyUrl!,
-            ),
+            onPressed: () => _handleScheduleCall(context, ref, mentor),
             icon: const Icon(Icons.video_call),
             label: const Text('Schedule Call'),
             style: ElevatedButton.styleFrom(
@@ -511,9 +511,9 @@ class MentorDetailScreen extends ConsumerWidget {
                 );
               }
 
-              // Check if chat already exists
+              // Check if chat already exists (real-time)
               final existingChatAsync = ref.watch(
-                existingChatProvider((
+                existingChatStreamProvider((
                   mentorId: mentor.id,
                   menteeId: firebaseUser.uid,
                 )),
@@ -636,7 +636,6 @@ class MentorDetailScreen extends ConsumerWidget {
     Mentor mentor,
   ) async {
     try {
-      // Use FirebaseAuth.instance.currentUser for reliable, synchronous access
       final firebaseUser = FirebaseAuth.instance.currentUser;
 
       if (firebaseUser == null) {
@@ -682,7 +681,6 @@ class MentorDetailScreen extends ConsumerWidget {
         );
       }
     } catch (e) {
-      // Hide loading indicator if still showing
       if (context.mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
@@ -690,15 +688,14 @@ class MentorDetailScreen extends ConsumerWidget {
       if (context.mounted) {
         String errorMessage;
         if (e.toString().contains('Permission denied')) {
-          errorMessage =
-              'Unable to start chat. Please ensure you\'re signed in and try again.';
+          errorMessage = e.toString();
         } else if (e.toString().contains('Network error')) {
           errorMessage =
               'Network connection issue. Please check your internet and try again.';
         } else if (e.toString().contains('User not authenticated')) {
           errorMessage = 'Please sign in again to start a chat.';
         } else {
-          errorMessage = 'Failed to start chat. Please try again.';
+          errorMessage = e.toString();
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -719,5 +716,366 @@ class MentorDetailScreen extends ConsumerWidget {
         );
       }
     }
+  }
+
+  Future<void> _handleScheduleCall(
+    BuildContext context,
+    WidgetRef ref,
+    Mentor mentor,
+  ) async {
+    if (mentor.inAppScheduling != true) {
+      if (mentor.calendlyUrl != null && mentor.calendlyUrl!.isNotEmpty) {
+        await UrlLauncherService.launchCalendlyUrl(
+          context,
+          mentor.calendlyUrl!,
+        );
+      }
+      return;
+    }
+
+    if (context.mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    try {
+      final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
+      final callable = functions.httpsCallable('availableTimes');
+
+      final result = await callable.call(<String, dynamic>{
+        'mentorId': mentor.id,
+      });
+
+      // Hide loading
+      if (context.mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      final data = result.data as Map<String, dynamic>?;
+      if (data == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No availability returned')),
+        );
+        return;
+      }
+
+      if (data.containsKey('error')) {
+        final msg = data['error']?.toString() ?? 'Failed to fetch availability';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), backgroundColor: Colors.red),
+        );
+        return;
+      }
+
+      final slots =
+          (data['availableTimeSlots'] as List<dynamic>?)
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList() ??
+          [];
+
+      if (slots.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No available times found')),
+        );
+        return;
+      }
+
+      if (context.mounted) {
+        final rootContext = context;
+        showDialog(
+          context: context,
+          builder: (dialogContext) {
+            final brand = Theme.of(dialogContext).extension<AppBrand>()!;
+            final textTheme = Theme.of(dialogContext).textTheme;
+            return AlertDialog(
+              title: const Text('Choose a time'),
+              content: SingleChildScrollView(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: slots.map((slot) {
+                    final iso = slot['start_time']?.toString() ?? '';
+                    DateTime? dt;
+                    try {
+                      dt = DateTime.parse(iso).toLocal();
+                    } catch (_) {}
+                    final dateFmt = DateFormat('EEE, MMM d • h:mm a');
+                    final label = dt != null ? dateFmt.format(dt) : iso;
+                    final hasStartTime = iso.isNotEmpty;
+
+                    return InputChip(
+                      label: Text(label, style: textTheme.bodyMedium),
+                      selectedColor: brand.brand.withOpacity(0.15),
+                      backgroundColor: brand.surfaceAlt,
+                      labelStyle: TextStyle(color: brand.ink),
+                      onPressed: hasStartTime
+                          ? () async {
+                              Navigator.of(dialogContext).pop();
+                              await _bookCalendlySlot(
+                                rootContext,
+                                mentor,
+                                slot,
+                              );
+                            }
+                          : null,
+                    );
+                  }).toList(),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Close'),
+                ),
+              ],
+            );
+          },
+        );
+      }
+    } catch (e) {
+      // Hide loading if still showing
+      if (context.mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      final errorMessage = e.toString();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to fetch availability: $errorMessage'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _bookCalendlySlot(
+    BuildContext context,
+    Mentor mentor,
+    Map<String, dynamic> slot,
+  ) async {
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (firebaseUser == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please sign in to book a session'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    final startIso = slot['start_time']?.toString();
+    if (startIso == null || startIso.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Selected slot is invalid')),
+        );
+      }
+      return;
+    }
+
+    bool loadingShown = false;
+    void dismissLoading() {
+      if (loadingShown && context.mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+        loadingShown = false;
+      }
+    }
+
+    if (context.mounted) {
+      loadingShown = true;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) =>
+            const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    try {
+      final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
+      final callable = functions.httpsCallable('scheduleCalendlyInvitee');
+      final result = await callable.call(<String, dynamic>{
+        'mentorId': mentor.id,
+        'userId': firebaseUser.uid,
+        'startTime': startIso,
+      });
+
+      dismissLoading();
+
+      final raw = result.data;
+      if (raw is! Map) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Unexpected response from scheduling service'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final response = Map<String, dynamic>.from(raw);
+
+      if (response['error'] != null) {
+        final msg =
+            response['error']?.toString() ?? 'Failed to schedule this session';
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(msg), backgroundColor: Colors.red),
+          );
+        }
+        return;
+      }
+
+      final resourceRaw = response['resource'];
+      if (resourceRaw is! Map) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Missing confirmation details from Calendly'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final invitee = CalendlyInviteeResource.fromMap(
+        Map<String, dynamic>.from(resourceRaw),
+      );
+
+      final scheduledDate = DateTime.tryParse(startIso)?.toLocal();
+      final dateLabel = scheduledDate != null
+          ? DateFormat('EEE, MMM d • h:mm a').format(scheduledDate)
+          : startIso;
+      final timezoneLabel = invitee.timezone != null
+          ? ' (${invitee.timezone})'
+          : '';
+
+      if (context.mounted) {
+        await showDialog(
+          context: context,
+          builder: (dialogContext) {
+            final brand = Theme.of(dialogContext).extension<AppBrand>()!;
+            final textTheme = Theme.of(dialogContext).textTheme;
+            return AlertDialog(
+              title: const Text('Session Confirmed'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'You\'re booked with ${mentor.name}.',
+                    style: textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: brand.ink,
+                    ),
+                  ),
+                  Spacers.h16,
+                  _buildConfirmationRow(
+                    'Invitee',
+                    invitee.name,
+                    textTheme,
+                    brand,
+                  ),
+                  Spacers.h12,
+                  _buildConfirmationRow(
+                    'Email',
+                    invitee.email,
+                    textTheme,
+                    brand,
+                  ),
+                  Spacers.h12,
+                  _buildConfirmationRow(
+                    'Time',
+                    '$dateLabel$timezoneLabel',
+                    textTheme,
+                    brand,
+                  ),
+                  if (invitee.rescheduleUrl != null ||
+                      invitee.cancelUrl != null) ...[
+                    Spacers.h24,
+                    Text(
+                      'Need to make changes?',
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: brand.graphite,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                if (invitee.rescheduleUrl != null)
+                  TextButton(
+                    onPressed: () => UrlLauncherService.launchCalendlyUrl(
+                      dialogContext,
+                      invitee.rescheduleUrl!,
+                    ),
+                    child: const Text('Reschedule'),
+                  ),
+                if (invitee.cancelUrl != null)
+                  TextButton(
+                    onPressed: () => UrlLauncherService.launchCalendlyUrl(
+                      dialogContext,
+                      invitee.cancelUrl!,
+                    ),
+                    child: const Text('Cancel Session'),
+                  ),
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Close'),
+                ),
+              ],
+            );
+          },
+        );
+      }
+    } catch (e) {
+      dismissLoading();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Unable to book session: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildConfirmationRow(
+    String label,
+    String value,
+    TextTheme textTheme,
+    AppBrand brand,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: textTheme.labelSmall?.copyWith(
+            color: brand.graphite,
+            letterSpacing: 0.2,
+          ),
+        ),
+        Text(
+          value,
+          style: textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: brand.ink,
+          ),
+        ),
+      ],
+    );
   }
 }

@@ -22,6 +22,7 @@ class Mentor {
   final double? chatPrice;
   final bool isCalendlySetup;
   final bool? isHidden;
+  final bool? inAppScheduling;
 
   const Mentor({
     required this.id,
@@ -41,6 +42,7 @@ class Mentor {
     this.chatPrice,
     this.isCalendlySetup = false,
     this.isHidden,
+    this.inAppScheduling,
   });
 
   /// Creates a Mentor from a Firestore map and document ID.
@@ -68,6 +70,7 @@ class Mentor {
       chatPrice: (data['chatPrice'] as num?)?.toDouble(),
       isCalendlySetup: data['isCalendlySetup'] ?? false,
       isHidden: data['isHidden'],
+      inAppScheduling: data['inAppScheduling'],
     );
   }
 
@@ -97,6 +100,7 @@ class Mentor {
           ?.toDouble(),
       chatPrice: (json['chatPrice'] as num?)?.toDouble(),
       isCalendlySetup: json['isCalendlySetup'] ?? false,
+      inAppScheduling: json['inAppScheduling'],
     );
   }
 
