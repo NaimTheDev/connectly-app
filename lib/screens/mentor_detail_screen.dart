@@ -511,9 +511,9 @@ class MentorDetailScreen extends ConsumerWidget {
                 );
               }
 
-              // Check if chat already exists
+              // Check if chat already exists (real-time)
               final existingChatAsync = ref.watch(
-                existingChatProvider((
+                existingChatStreamProvider((
                   mentorId: mentor.id,
                   menteeId: firebaseUser.uid,
                 )),
@@ -636,7 +636,6 @@ class MentorDetailScreen extends ConsumerWidget {
     Mentor mentor,
   ) async {
     try {
-      // Use FirebaseAuth.instance.currentUser for reliable, synchronous access
       final firebaseUser = FirebaseAuth.instance.currentUser;
 
       if (firebaseUser == null) {
@@ -689,15 +688,14 @@ class MentorDetailScreen extends ConsumerWidget {
       if (context.mounted) {
         String errorMessage;
         if (e.toString().contains('Permission denied')) {
-          errorMessage =
-              'Unable to start chat. Please ensure you\'re signed in and try again.';
+          errorMessage = e.toString();
         } else if (e.toString().contains('Network error')) {
           errorMessage =
               'Network connection issue. Please check your internet and try again.';
         } else if (e.toString().contains('User not authenticated')) {
           errorMessage = 'Please sign in again to start a chat.';
         } else {
-          errorMessage = 'Failed to start chat. Please try again.';
+          errorMessage = e.toString();
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -924,13 +922,11 @@ class MentorDetailScreen extends ConsumerWidget {
         return;
       }
 
-      final response = Map<String, dynamic>.from(
-        raw as Map<dynamic, dynamic>,
-      );
+      final response = Map<String, dynamic>.from(raw);
 
       if (response['error'] != null) {
-        final msg = response['error']?.toString() ??
-            'Failed to schedule this session';
+        final msg =
+            response['error']?.toString() ?? 'Failed to schedule this session';
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(msg), backgroundColor: Colors.red),
@@ -953,17 +949,16 @@ class MentorDetailScreen extends ConsumerWidget {
       }
 
       final invitee = CalendlyInviteeResource.fromMap(
-        Map<String, dynamic>.from(
-          resourceRaw as Map<dynamic, dynamic>,
-        ),
+        Map<String, dynamic>.from(resourceRaw),
       );
 
       final scheduledDate = DateTime.tryParse(startIso)?.toLocal();
       final dateLabel = scheduledDate != null
           ? DateFormat('EEE, MMM d • h:mm a').format(scheduledDate)
           : startIso;
-      final timezoneLabel =
-          invitee.timezone != null ? ' (${invitee.timezone})' : '';
+      final timezoneLabel = invitee.timezone != null
+          ? ' (${invitee.timezone})'
+          : '';
 
       if (context.mounted) {
         await showDialog(

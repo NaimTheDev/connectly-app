@@ -4,27 +4,23 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/chat.dart';
 
 /// Provider to check if a chat already exists between a mentor and mentee
-final existingChatProvider =
-    FutureProvider.family<Chat?, ({String mentorId, String menteeId})>((
-      ref,
-      params,
-    ) async {
+// Real-time provider to observe whether a chat exists between mentor and mentee
+// and return the Chat data if it does. Using StreamProvider ensures the UI
+// reacts immediately after creation without requiring a hot restart.
+final existingChatStreamProvider = StreamProvider.family
+    .autoDispose<Chat?, ({String mentorId, String menteeId})>((ref, params) {
       final chatId = '${params.menteeId}_${params.mentorId}';
 
-      try {
-        final existingChatDoc = await FirebaseFirestore.instance
-            .collection('chats')
-            .doc(chatId)
-            .get();
-
-        if (existingChatDoc.exists) {
-          return Chat.fromMap(existingChatDoc.id, existingChatDoc.data()!);
-        }
-
-        return null;
-      } catch (e) {
-        return null;
-      }
+      return FirebaseFirestore.instance
+          .collection('chats')
+          .doc(chatId)
+          .snapshots()
+          .map((snapshot) {
+            if (!snapshot.exists) return null;
+            final data = snapshot.data();
+            if (data == null) return null;
+            return Chat.fromMap(snapshot.id, data);
+          });
     });
 
 /// Provider to create or find an existing chat between a mentor and mentee
@@ -84,9 +80,7 @@ final createOrFindChatProvider = Provider((ref) {
     } catch (e) {
       // More specific error handling
       if (e.toString().contains('permission-denied')) {
-        throw Exception(
-          'Permission denied: Check your authentication and try again',
-        );
+        throw Exception(e.toString());
       } else if (e.toString().contains('network')) {
         throw Exception(
           'Network error: Please check your connection and try again',
