@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-/// Enum for navigation tabs
+part 'navigation_providers.g.dart';
+
 enum NavigationTab {
   home(0, 'Home', Icons.home),
   messages(1, 'Messages', Icons.message),
@@ -15,25 +16,26 @@ enum NavigationTab {
   final String label;
   final IconData icon;
 
-  static NavigationTab fromIndex(int index) {
-    return NavigationTab.values.firstWhere(
-      (tab) => tab.tabIndex == index,
-      orElse: () => NavigationTab.home,
-    );
-  }
+  static NavigationTab fromIndex(int index) => NavigationTab.values.firstWhere(
+        (tab) => tab.tabIndex == index,
+        orElse: () => NavigationTab.home,
+      );
 }
 
-/// Simple navigation controller using ValueNotifier
+@Riverpod(keepAlive: true)
+class NavigationNotifier extends _$NavigationNotifier {
+  @override
+  int build() => 0;
+
+  void setTab(int index) => state = index;
+}
+
+// Keep the old ValueNotifier for widgets that still reference it directly
+// TODO: migrate all consumers to navigationNotifierProvider
 final navigationController = ValueNotifier<int>(0);
 
-/// Provider for current tab index
-final currentTabIndexProvider = Provider<int>((ref) {
-  // This will be updated by the navigation wrapper
-  return 0;
-});
-
-/// Provider for current navigation tab
-final currentNavigationTabProvider = Provider<NavigationTab>((ref) {
-  final index = ref.watch(currentTabIndexProvider);
+@riverpod
+NavigationTab currentNavigationTab(CurrentNavigationTabRef ref) {
+  final index = ref.watch(navigationNotifierProvider);
   return NavigationTab.fromIndex(index);
-});
+}

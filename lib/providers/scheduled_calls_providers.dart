@@ -1,69 +1,41 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../models/scheduled_call.dart';
 
-/// Authenticated user's scheduled calls (supports both subcollection names)
-final scheduledCallsProvider =
-    FutureProvider.family<List<ScheduledCall>, String>((ref, uid) async {
-      final calls = <ScheduledCall>[];
+part 'scheduled_calls_providers.g.dart';
 
-      final newSnap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('scheduled_calls')
-          .get();
+@riverpod
+Future<List<ScheduledCall>> scheduledCalls(
+  ScheduledCallsRef ref,
+  String uid,
+) async {
+  final snapshot = await FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .collection('scheduled_calls')
+      .get();
 
-      final now = DateTime.now();
+  final now = DateTime.now();
 
-      calls.addAll(
-        newSnap.docs
-            .map((doc) {
-              final data = doc.data();
-              return ScheduledCall(
-                calendlyEventUri: data['calendlyEventUri'] ?? '',
-                cancelUrl: data['cancelUrl'] ?? '',
-                createdAt: data['createdAt'],
-                endTime: data['endTime'] ?? '',
-                eventType: data['eventType'] ?? '',
-                inviteeEmail: data['inviteeEmail'] ?? '',
-                inviteeName: data['inviteeName'] ?? '',
-                mentorUri: data['mentorUri'] ?? '',
-                mentorName: data['mentorName'],
-                payment: data['payment'],
-                reconfirmation: data['reconfirmation'],
-                rescheduleUrl: data['rescheduleUrl'] ?? '',
-                rescheduled: data['rescheduled'] ?? false,
-                startTime: data['startTime'] ?? '',
-                status: data['status'] ?? '',
-                timezone: data['timezone'] ?? '',
-                joinUrl: data['joinUrl'],
-              );
-            })
-            .where((call) {
-              // Filter out past calls by parsing endTime string
-              try {
-                final endTime = DateTime.parse(call.endTime);
-                return endTime.isAfter(now);
-              } catch (e) {
-                print("could not parse because of " + e.toString());
-                // If parsing fails, exclude the call
-                return false;
-              }
-            })
-            .toList(),
-      );
-
-      // Sort calls by endTime ascending (earliest first)
-      calls.sort((a, b) {
+  final calls = snapshot.docs
+      .map((doc) => ScheduledCall.fromFirestore(doc.data()))
+      .where((call) {
         try {
-          final aEndTime = DateTime.parse(a.endTime);
-          final bEndTime = DateTime.parse(b.endTime);
-          return aEndTime.compareTo(bEndTime);
+          return DateTime.parse(call.endTime).isAfter(now);
         } catch (e) {
-          // If parsing fails, maintain current order
-          return 0;
+          debugPrint('scheduledCalls: could not parse endTime for call — $e');
+          return false;
         }
-      });
-
-      return calls;
+      })
+      .toList()
+    ..sort((a, b) {
+      try {
+        return DateTime.parse(a.endTime).compareTo(DateTime.parse(b.endTime));
+      } catch (_) {
+        return 0;
+      }
     });
+
+  return calls;
+}

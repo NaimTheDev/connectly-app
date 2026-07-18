@@ -1,33 +1,12 @@
 import 'dart:async';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../models/chat.dart';
 import '../../models/message.dart';
 
-/// Authenticated user's chats
-final chatsProvider = FutureProvider.family<List<Map<String, dynamic>>, String>(
-  (ref, uid) async {
-    // Get chats where user is either mentor or mentee
-    final mentorChatsSnapshot = await FirebaseFirestore.instance
-        .collection('chats')
-        .where('mentorId', isEqualTo: uid)
-        .get();
+part 'chats_providers.g.dart';
 
-    final menteeChatsSnapshot = await FirebaseFirestore.instance
-        .collection('chats')
-        .where('menteeId', isEqualTo: uid)
-        .get();
-
-    // Combine both results
-    final allChats = <Map<String, dynamic>>[];
-    allChats.addAll(mentorChatsSnapshot.docs.map((doc) => doc.data()));
-    allChats.addAll(menteeChatsSnapshot.docs.map((doc) => doc.data()));
-
-    return allChats;
-  },
-);
-
-/// Chat data with latest message for chat list display
 class ChatWithLatestMessage {
   final Chat chat;
   final Message? latestMessage;
@@ -37,169 +16,123 @@ class ChatWithLatestMessage {
 
 typedef DeleteChatCallback = Future<void> Function(String chatId);
 
-/// Deletes a chat and all nested message documents.
-final deleteChatProvider = Provider<DeleteChatCallback>((ref) {
+@Riverpod(keepAlive: true)
+DeleteChatCallback deleteChat(DeleteChatRef ref) {
   return (chatId) async {
     final firestore = FirebaseFirestore.instance;
     final chatRef = firestore.collection('chats').doc(chatId);
     final messagesSnapshot = await chatRef.collection('messages').get();
-
     final batch = firestore.batch();
     for (final doc in messagesSnapshot.docs) {
       batch.delete(doc.reference);
     }
     batch.delete(chatRef);
-
     await batch.commit();
   };
-});
+}
 
-/// Enhanced provider that combines chat data with latest messages
-final chatsWithLatestMessageProvider =
-    FutureProvider.family<List<ChatWithLatestMessage>, String>((
-      ref,
-      uid,
-    ) async {
-      // Get chats where user is either mentor or mentee
-      final mentorChatsSnapshot = await FirebaseFirestore.instance
-          .collection('chats')
-          .where('mentorId', isEqualTo: uid)
-          .get();
+@riverpod
+Future<List<ChatWithLatestMessage>> chatsWithLatestMessage(
+  ChatsWithLatestMessageRef ref,
+  String uid,
+) async {
+  final mentorSnap = await FirebaseFirestore.instance
+      .collection('chats')
+      .where('mentorId', isEqualTo: uid)
+      .get();
 
-      final menteeChatsSnapshot = await FirebaseFirestore.instance
-          .collection('chats')
-          .where('menteeId', isEqualTo: uid)
-          .get();
+  final menteeSnap = await FirebaseFirestore.instance
+      .collection('chats')
+      .where('menteeId', isEqualTo: uid)
+      .get();
 
-      final List<ChatWithLatestMessage> chatsWithMessages = [];
+  final results = <ChatWithLatestMessage>[];
 
-      // Process mentor chats
-      for (final chatDoc in mentorChatsSnapshot.docs) {
-        final chat = Chat.fromMap(chatDoc.id, chatDoc.data());
-        final latestMessage = await _getLatestMessage(chat.chatId);
-        chatsWithMessages.add(
-          ChatWithLatestMessage(chat: chat, latestMessage: latestMessage),
-        );
+  for (final doc in [...mentorSnap.docs, ...menteeSnap.docs]) {
+    final chat = Chat.fromMap(doc.id, doc.data());
+    final latest = await _getLatestMessage(chat.chatId);
+    results.add(ChatWithLatestMessage(chat: chat, latestMessage: latest));
+  }
+
+  results.sort((a, b) {
+    final aTs = a.latestMessage?.timestamp ?? a.chat.timestamp;
+    final bTs = b.latestMessage?.timestamp ?? b.chat.timestamp;
+    return bTs.compareTo(aTs);
+  });
+
+  return results;
+}
+
+@riverpod
+Stream<List<ChatWithLatestMessage>> chatsStream(
+  ChatsStreamRef ref,
+  String uid,
+) {
+  final controller = StreamController<List<ChatWithLatestMessage>>();
+
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> mentorDocs = [];
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> menteeDocs = [];
+
+  Future<void> emit() async {
+    try {
+      final results = <ChatWithLatestMessage>[];
+      for (final doc in [...mentorDocs, ...menteeDocs]) {
+        final chat = Chat.fromMap(doc.id, doc.data());
+        final latest = await _getLatestMessage(chat.chatId);
+        results.add(ChatWithLatestMessage(chat: chat, latestMessage: latest));
       }
-
-      // Process mentee chats
-      for (final chatDoc in menteeChatsSnapshot.docs) {
-        final chat = Chat.fromMap(chatDoc.id, chatDoc.data());
-        final latestMessage = await _getLatestMessage(chat.chatId);
-        chatsWithMessages.add(
-          ChatWithLatestMessage(chat: chat, latestMessage: latestMessage),
-        );
-      }
-
-      // Sort by latest message timestamp, then by chat timestamp
-      chatsWithMessages.sort((a, b) {
-        final aTimestamp = a.latestMessage?.timestamp ?? a.chat.timestamp;
-        final bTimestamp = b.latestMessage?.timestamp ?? b.chat.timestamp;
-        return bTimestamp.compareTo(aTimestamp);
+      results.sort((a, b) {
+        final aTs = a.latestMessage?.timestamp ?? a.chat.timestamp;
+        final bTs = b.latestMessage?.timestamp ?? b.chat.timestamp;
+        return bTs.compareTo(aTs);
       });
+      if (!controller.isClosed) controller.add(results);
+    } catch (e) {
+      if (!controller.isClosed) controller.addError(e);
+    }
+  }
 
-      return chatsWithMessages;
-    });
+  final mentorSub = FirebaseFirestore.instance
+      .collection('chats')
+      .where('mentorId', isEqualTo: uid)
+      .snapshots()
+      .listen((snap) {
+    mentorDocs = snap.docs;
+    emit();
+  });
 
-/// Real-time streaming provider for chats with latest messages
-final chatsStreamProvider = StreamProvider.autoDispose
-    .family<List<ChatWithLatestMessage>, String>((ref, uid) {
-      // Create a controller to manually merge the streams
-      late StreamController<List<ChatWithLatestMessage>> controller;
+  final menteeSub = FirebaseFirestore.instance
+      .collection('chats')
+      .where('menteeId', isEqualTo: uid)
+      .snapshots()
+      .listen((snap) {
+    menteeDocs = snap.docs;
+    emit();
+  });
 
-      // Keep track of both mentor and mentee chats
-      List<QueryDocumentSnapshot<Map<String, dynamic>>> mentorChats = [];
-      List<QueryDocumentSnapshot<Map<String, dynamic>>> menteeChats = [];
+  ref.onDispose(() {
+    mentorSub.cancel();
+    menteeSub.cancel();
+    controller.close();
+  });
 
-      // Function to process and emit combined chats
-      Future<void> emitCombinedChats() async {
-        try {
-          final List<ChatWithLatestMessage> chatsWithMessages = [];
+  return controller.stream;
+}
 
-          // Process mentor chats
-          for (final chatDoc in mentorChats) {
-            final chat = Chat.fromMap(chatDoc.id, chatDoc.data());
-            final latestMessage = await _getLatestMessage(chat.chatId);
-            chatsWithMessages.add(
-              ChatWithLatestMessage(chat: chat, latestMessage: latestMessage),
-            );
-          }
-
-          // Process mentee chats
-          for (final chatDoc in menteeChats) {
-            final chat = Chat.fromMap(chatDoc.id, chatDoc.data());
-            final latestMessage = await _getLatestMessage(chat.chatId);
-            chatsWithMessages.add(
-              ChatWithLatestMessage(chat: chat, latestMessage: latestMessage),
-            );
-          }
-
-          // Sort by latest message timestamp, then by chat timestamp
-          chatsWithMessages.sort((a, b) {
-            final aTimestamp = a.latestMessage?.timestamp ?? a.chat.timestamp;
-            final bTimestamp = b.latestMessage?.timestamp ?? b.chat.timestamp;
-            return bTimestamp.compareTo(aTimestamp);
-          });
-
-          if (!controller.isClosed) {
-            controller.add(chatsWithMessages);
-          }
-        } catch (e) {
-          if (!controller.isClosed) {
-            controller.addError(e);
-          }
-        }
-      }
-
-      controller = StreamController<List<ChatWithLatestMessage>>();
-
-      // Listen to mentor chats
-      final mentorSubscription = FirebaseFirestore.instance
-          .collection('chats')
-          .where('mentorId', isEqualTo: uid)
-          .snapshots()
-          .listen((snapshot) {
-            mentorChats = snapshot.docs;
-            emitCombinedChats();
-          });
-
-      // Listen to mentee chats
-      final menteeSubscription = FirebaseFirestore.instance
-          .collection('chats')
-          .where('menteeId', isEqualTo: uid)
-          .snapshots()
-          .listen((snapshot) {
-            menteeChats = snapshot.docs;
-            emitCombinedChats();
-          });
-
-      // Clean up when provider is disposed
-      ref.onDispose(() {
-        mentorSubscription.cancel();
-        menteeSubscription.cancel();
-        controller.close();
-      });
-
-      return controller.stream;
-    });
-
-/// Helper function to get the latest message for a chat
 Future<Message?> _getLatestMessage(String chatId) async {
   try {
-    final messagesSnapshot = await FirebaseFirestore.instance
+    final snap = await FirebaseFirestore.instance
         .collection('chats')
         .doc(chatId)
         .collection('messages')
         .orderBy('timestamp', descending: true)
         .limit(1)
         .get();
-
-    if (messagesSnapshot.docs.isNotEmpty) {
-      final messageDoc = messagesSnapshot.docs.first;
-      return Message.fromMap(messageDoc.id, messageDoc.data());
+    if (snap.docs.isNotEmpty) {
+      return Message.fromMap(snap.docs.first.id, snap.docs.first.data());
     }
   } catch (e) {
-    print('Error fetching latest message for chat $chatId: $e');
+    debugPrint('_getLatestMessage($chatId): $e');
   }
   return null;
 }

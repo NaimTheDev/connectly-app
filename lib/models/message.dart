@@ -1,21 +1,24 @@
-/// Message data model for representing individual messages in a chat.
-class Message {
-  final String messageId;
-  final String message;
-  final String receiverId;
-  final String senderId;
-  final int timestamp;
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-  const Message({
-    required this.messageId,
-    required this.message,
-    required this.receiverId,
-    required this.senderId,
-    required this.timestamp,
-  });
+part 'message.freezed.dart';
+part 'message.g.dart';
 
-  /// Creates a Message from a Firestore document ID and data.
-  factory Message.fromMap(String id, Map<String, dynamic> data) {
+@freezed
+class Message with _$Message {
+  const Message._();
+
+  const factory Message({
+    required String messageId,
+    required String message,
+    required String receiverId,
+    required String senderId,
+    required int timestamp,
+  }) = _Message;
+
+  factory Message.fromJson(Map<String, dynamic> json) =>
+      _$MessageFromJson(json);
+
+  static Message fromMap(String id, Map<String, dynamic> data) {
     return Message(
       messageId: id,
       message: data['message'] as String? ?? '',
@@ -25,19 +28,14 @@ class Message {
     );
   }
 
-  /// Converts the Message to a map for Firestore storage.
-  Map<String, dynamic> toMap() {
-    return {
-      'message': message,
-      'receiverId': receiverId,
-      'senderId': senderId,
-      'timestamp': timestamp,
-    };
-  }
+  Map<String, dynamic> toMap() => {
+    'message': message,
+    'receiverId': receiverId,
+    'senderId': senderId,
+    'timestamp': timestamp,
+  };
 
-  /// Returns a formatted timestamp for display.
   DateTime get dateTime => DateTime.fromMillisecondsSinceEpoch(timestamp);
 
-  /// Returns true if the current user is the sender.
   bool isSentByUser(String currentUserId) => senderId == currentUserId;
 }

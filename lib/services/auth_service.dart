@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/app_user.dart';
@@ -6,8 +7,8 @@ import 'auth_exceptions.dart';
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  /// Stream of Firebase [User] objects for auth state changes.
   Stream<User?> get firebaseUserStream => _auth.authStateChanges();
 
   Future<AppUser?> signInWithEmail(String email, String password) async {
@@ -16,16 +17,12 @@ class AuthService {
         email: email,
         password: password,
       );
-      return _userFromFirebase(result.user);
+      return _buildAppUser(result.user);
     } catch (error) {
       throw AuthExceptionHandler.handleFirebaseAuthException(error);
     }
   }
 
-  /// Sign up with email/password and return both the created user (as [AppUser])
-  /// and a boolean flag indicating whether this is a brand new account.
-  ///
-  /// Returns a record: `(user, isNewUser)`.
   Future<(AppUser?, bool)> signUpWithEmail(
     String email,
     String password,
@@ -37,39 +34,27 @@ class AuthService {
         password: password,
       );
       final isNew = result.additionalUserInfo?.isNewUser ?? true;
-      return (_userFromFirebase(result.user, role: role), isNew);
+      return (_buildAppUserWithRole(result.user, role: role), isNew);
     } catch (error) {
       throw AuthExceptionHandler.handleFirebaseAuthException(error);
     }
   }
 
-  /// Sign in with Google and return `(user, isNewUser)`.
   Future<(AppUser?, bool)> signInWithGoogle() async {
     try {
-      final googleUser = await _googleSignIn.authenticate();
-      final googleAuth = googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(
-        idToken: googleAuth.idToken,
-      );
-      final result = await _auth.signInWithCredential(credential);
+      final result = await _googleSignInFlow();
       final isNew = result.additionalUserInfo?.isNewUser ?? false;
-      return (_userFromFirebase(result.user), isNew);
+      return (_buildAppUser(result.user), isNew);
     } catch (error) {
       throw AuthExceptionHandler.handleFirebaseAuthException(error);
     }
   }
 
-  /// Sign up with Google and return `(user, isNewUser)`.
   Future<(AppUser?, bool)> signUpWithGoogle(UserRole role) async {
     try {
-      final googleUser = await _googleSignIn.authenticate();
-      final googleAuth = googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(
-        idToken: googleAuth.idToken,
-      );
-      final result = await _auth.signInWithCredential(credential);
+      final result = await _googleSignInFlow();
       final isNew = result.additionalUserInfo?.isNewUser ?? false;
-      return (_userFromFirebase(result.user, role: role), isNew);
+      return (_buildAppUserWithRole(result.user, role: role), isNew);
     } catch (error) {
       throw AuthExceptionHandler.handleFirebaseAuthException(error);
     }
@@ -80,14 +65,10 @@ class AuthService {
     await _googleSignIn.signOut();
   }
 
-  /// Sends a password reset email to the given email address.
-  ///
-  /// Throws [AuthException] with user-friendly error messages.
   Future<void> sendPasswordResetEmail(String email) async {
     try {
       await _auth.sendPasswordResetEmail(email: email);
     } on FirebaseAuthException catch (error) {
-      // Use specific password reset exception for user-not-found in this context
       if (error.code == 'user-not-found') {
         throw const PasswordResetEmailNotFoundException();
       }
@@ -97,13 +78,50 @@ class AuthService {
     }
   }
 
-  AppUser? _userFromFirebase(User? user, {UserRole? role}) {
+  // ── Private helpers ────────────────────────────────────────────────────────
+
+  Future<UserCredential> _googleSignInFlow() async {
+    final googleUser = await _googleSignIn.authenticate();
+    final googleAuth = googleUser.authentication;
+    final credential = GoogleAuthProvider.credential(
+      idToken: googleAuth.idToken,
+    );
+    return _auth.signInWithCredential(credential);
+  }
+
+  /// Builds an [AppUser] by fetching the stored role from Firestore.
+  /// Falls back to [UserRole.mentee] when the document doesn't exist yet
+  /// (e.g. during initial sign-up before the profile document is created).
+  Future<AppUser?> _buildAppUser(User? user) async {
     if (user == null) return null;
-    // You should fetch additional user info from Firestore here
+    UserRole role = UserRole.mentee;
+    try {
+      final doc = await _firestore.collection('users').doc(user.uid).get();
+      if (doc.exists) {
+        final data = doc.data()!;
+        role = (data['role'] == 'mentor') ? UserRole.mentor : UserRole.mentee;
+      }
+    } catch (_) {
+      // Network error — proceed with default mentee role; role will be
+      // corrected the next time the user's Firestore document is fetched.
+    }
     return AppUser(
       uid: user.uid,
       email: user.email ?? '',
-      role: role ?? UserRole.mentee,
+      role: role,
+      name: user.displayName,
+      imageUrl: user.photoURL,
+    );
+  }
+
+  /// Builds an [AppUser] with an explicitly provided role (used during sign-up
+  /// before the Firestore profile document has been created).
+  AppUser? _buildAppUserWithRole(User? user, {required UserRole role}) {
+    if (user == null) return null;
+    return AppUser(
+      uid: user.uid,
+      email: user.email ?? '',
+      role: role,
       name: user.displayName,
       imageUrl: user.photoURL,
     );
