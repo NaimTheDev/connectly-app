@@ -263,7 +263,6 @@ export const scheduleCalendlyInvitee = onCall(
         },
         location: {
           kind: 'zoom_conference',
-          connected: true,
         },
       };
 
