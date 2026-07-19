@@ -5,7 +5,7 @@ import '../models/mentor.dart';
 part 'mentors_providers.g.dart';
 
 @riverpod
-Future<List<Mentor>> mentors(MentorsRef ref) async {
+Future<List<Mentor>> mentors(Ref ref) async {
   final snapshot = await FirebaseFirestore.instance
       .collection('mentors')
       .where('isHidden', isEqualTo: false)
@@ -16,7 +16,7 @@ Future<List<Mentor>> mentors(MentorsRef ref) async {
 }
 
 @riverpod
-Future<Mentor?> mentorById(MentorByIdRef ref, String mentorId) async {
+Future<Mentor?> mentorById(Ref ref, String mentorId) async {
   final doc = await FirebaseFirestore.instance
       .collection('mentors')
       .doc(mentorId)

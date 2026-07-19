@@ -67,6 +67,11 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
           );
         }
       }
+    } on SignInCancelledException {
+      // User dismissed the Google account picker — not an error, show nothing.
+      if (mounted) {
+        setState(() => _error = null);
+      }
     } on AuthException catch (e) {
       if (mounted) {
         setState(() => _error = e);

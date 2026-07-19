@@ -6,7 +6,7 @@ part 'onboarding_state.freezed.dart';
 part 'onboarding_state.g.dart';
 
 @freezed
-class OnboardingState with _$OnboardingState {
+abstract class OnboardingState with _$OnboardingState {
   const OnboardingState._();
 
   const factory OnboardingState({

@@ -11,7 +11,7 @@ enum UserRole {
 }
 
 @freezed
-class AppUser with _$AppUser {
+abstract class AppUser with _$AppUser {
   const AppUser._();
 
   const factory AppUser({

@@ -5,7 +5,7 @@ import '../../models/message.dart';
 part 'messages_providers.g.dart';
 
 @riverpod
-Stream<List<Message>> messagesStream(MessagesStreamRef ref, String chatId) {
+Stream<List<Message>> messagesStream(Ref ref, String chatId) {
   return FirebaseFirestore.instance
       .collection('chats')
       .doc(chatId)
@@ -24,7 +24,7 @@ typedef SendMessageCallback = Future<void> Function({
 });
 
 @Riverpod(keepAlive: true)
-SendMessageCallback sendMessage(SendMessageRef ref) {
+SendMessageCallback sendMessage(Ref ref) {
   return ({
     required String chatId,
     required String message,

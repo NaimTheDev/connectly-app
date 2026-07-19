@@ -7,7 +7,7 @@ part 'chat_creation_providers.g.dart';
 
 @riverpod
 Stream<Chat?> existingChatStream(
-  ExistingChatStreamRef ref,
+  Ref ref,
   ({String mentorId, String menteeId}) params,
 ) {
   final chatId = '${params.menteeId}_${params.mentorId}';
@@ -25,7 +25,7 @@ typedef CreateOrFindChatCallback = Future<Chat> Function(
     String mentorId, String menteeId);
 
 @Riverpod(keepAlive: true)
-CreateOrFindChatCallback createOrFindChat(CreateOrFindChatRef ref) {
+CreateOrFindChatCallback createOrFindChat(Ref ref) {
   return (String mentorId, String menteeId) async {
     final chatId = '${menteeId}_$mentorId';
     final user = FirebaseAuth.instance.currentUser;

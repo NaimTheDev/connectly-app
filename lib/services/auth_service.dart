@@ -9,6 +9,11 @@ class AuthService {
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  /// google_sign_in 7.x requires an explicit, once-only [GoogleSignIn.initialize]
+  /// before any other method (e.g. [GoogleSignIn.authenticate]). Cached so it
+  /// runs exactly once for the lifetime of this service.
+  Future<void>? _googleInitFuture;
+
   Stream<User?> get firebaseUserStream => _auth.authStateChanges();
 
   Future<AppUser?> signInWithEmail(String email, String password) async {
@@ -44,7 +49,7 @@ class AuthService {
     try {
       final result = await _googleSignInFlow();
       final isNew = result.additionalUserInfo?.isNewUser ?? false;
-      return (_buildAppUser(result.user), isNew);
+      return (await _buildAppUser(result.user), isNew);
     } catch (error) {
       throw AuthExceptionHandler.handleFirebaseAuthException(error);
     }
@@ -80,7 +85,15 @@ class AuthService {
 
   // ── Private helpers ────────────────────────────────────────────────────────
 
+  /// Initializes [GoogleSignIn] exactly once. On Android no `serverClientId`
+  /// is required here — the Gradle google-services plugin injects the web OAuth
+  /// client (`client_type: 3`) from `google-services.json` as `default_web_client_id`.
+  Future<void> _ensureGoogleSignInInitialized() {
+    return _googleInitFuture ??= _googleSignIn.initialize();
+  }
+
   Future<UserCredential> _googleSignInFlow() async {
+    await _ensureGoogleSignInInitialized();
     final googleUser = await _googleSignIn.authenticate();
     final googleAuth = googleUser.authentication;
     final credential = GoogleAuthProvider.credential(

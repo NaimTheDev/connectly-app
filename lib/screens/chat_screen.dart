@@ -60,10 +60,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     try {
       final sendMessage = ref.read(sendMessageProvider);
       await sendMessage(
-        widget.chat.chatId,
-        messageText,
-        firebaseUser.uid,
-        widget.otherParticipantId,
+        chatId: widget.chat.chatId,
+        message: messageText,
+        senderId: firebaseUser.uid,
+        receiverId: widget.otherParticipantId,
       );
 
       _messageController.clear();

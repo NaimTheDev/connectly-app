@@ -17,7 +17,7 @@ class ChatWithLatestMessage {
 typedef DeleteChatCallback = Future<void> Function(String chatId);
 
 @Riverpod(keepAlive: true)
-DeleteChatCallback deleteChat(DeleteChatRef ref) {
+DeleteChatCallback deleteChat(Ref ref) {
   return (chatId) async {
     final firestore = FirebaseFirestore.instance;
     final chatRef = firestore.collection('chats').doc(chatId);
@@ -33,7 +33,7 @@ DeleteChatCallback deleteChat(DeleteChatRef ref) {
 
 @riverpod
 Future<List<ChatWithLatestMessage>> chatsWithLatestMessage(
-  ChatsWithLatestMessageRef ref,
+  Ref ref,
   String uid,
 ) async {
   final mentorSnap = await FirebaseFirestore.instance
@@ -65,7 +65,7 @@ Future<List<ChatWithLatestMessage>> chatsWithLatestMessage(
 
 @riverpod
 Stream<List<ChatWithLatestMessage>> chatsStream(
-  ChatsStreamRef ref,
+  Ref ref,
   String uid,
 ) {
   final controller = StreamController<List<ChatWithLatestMessage>>();

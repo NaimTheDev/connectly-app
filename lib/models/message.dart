@@ -4,7 +4,7 @@ part 'message.freezed.dart';
 part 'message.g.dart';
 
 @freezed
-class Message with _$Message {
+abstract class Message with _$Message {
   const Message._();
 
   const factory Message({

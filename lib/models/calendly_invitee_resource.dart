@@ -4,7 +4,7 @@ part 'calendly_invitee_resource.freezed.dart';
 part 'calendly_invitee_resource.g.dart';
 
 @freezed
-class CalendlyQuestionAnswer with _$CalendlyQuestionAnswer {
+abstract class CalendlyQuestionAnswer with _$CalendlyQuestionAnswer {
   const factory CalendlyQuestionAnswer({
     required String question,
     required String answer,
@@ -26,7 +26,7 @@ class CalendlyQuestionAnswer with _$CalendlyQuestionAnswer {
 }
 
 @freezed
-class CalendlyInviteeResource with _$CalendlyInviteeResource {
+abstract class CalendlyInviteeResource with _$CalendlyInviteeResource {
   const factory CalendlyInviteeResource({
     required String uri,
     required String email,

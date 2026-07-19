@@ -5,7 +5,7 @@ part 'mentor.freezed.dart';
 part 'mentor.g.dart';
 
 @freezed
-class Mentor with _$Mentor {
+abstract class Mentor with _$Mentor {
   const Mentor._();
 
   const factory Mentor({

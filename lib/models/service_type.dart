@@ -1,6 +1,3 @@
-import 'package:freezed_annotation/freezed_annotation.dart';
-
-@JsonEnum(valueField: 'name')
 enum ServiceType {
   virtualAppointments,
   chats,

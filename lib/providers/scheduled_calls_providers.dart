@@ -7,7 +7,7 @@ part 'scheduled_calls_providers.g.dart';
 
 @riverpod
 Future<List<ScheduledCall>> scheduledCalls(
-  ScheduledCallsRef ref,
+  Ref ref,
   String uid,
 ) async {
   final snapshot = await FirebaseFirestore.instance

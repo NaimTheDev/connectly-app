@@ -641,8 +641,8 @@ class MentorDetailScreen extends ConsumerWidget {
       if (firebaseUser == null) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please sign in to start a chat'),
+            SnackBar(
+              content: const Text('Please sign in to start a chat'),
               backgroundColor: Theme.of(context).extension<AppBrand>()!.danger,
             ),
           );
@@ -861,8 +861,8 @@ class MentorDetailScreen extends ConsumerWidget {
     if (firebaseUser == null) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please sign in to book a session'),
+          SnackBar(
+            content: const Text('Please sign in to book a session'),
             backgroundColor: Theme.of(context).extension<AppBrand>()!.danger,
           ),
         );
@@ -913,8 +913,8 @@ class MentorDetailScreen extends ConsumerWidget {
       if (raw is! Map) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Unexpected response from scheduling service'),
+            SnackBar(
+              content: const Text('Unexpected response from scheduling service'),
               backgroundColor: Theme.of(context).extension<AppBrand>()!.danger,
             ),
           );
@@ -939,8 +939,8 @@ class MentorDetailScreen extends ConsumerWidget {
       if (resourceRaw is! Map) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Missing confirmation details from Calendly'),
+            SnackBar(
+              content: const Text('Missing confirmation details from Calendly'),
               backgroundColor: Theme.of(context).extension<AppBrand>()!.danger,
             ),
           );

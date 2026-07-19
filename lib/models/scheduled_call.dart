@@ -5,7 +5,9 @@ part 'scheduled_call.freezed.dart';
 part 'scheduled_call.g.dart';
 
 @freezed
-class ScheduledCall with _$ScheduledCall {
+abstract class ScheduledCall with _$ScheduledCall {
+  const ScheduledCall._();
+
   const factory ScheduledCall({
     required String calendlyEventUri,
     // Firestore documents written by the webhook use snake_case for these two fields

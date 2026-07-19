@@ -9,11 +9,11 @@ import '../models/service_type.dart';
 part 'onboarding_providers.g.dart';
 
 @Riverpod(keepAlive: true)
-OnboardingService onboardingService(OnboardingServiceRef ref) =>
+OnboardingService onboardingService(Ref ref) =>
     OnboardingService();
 
 @riverpod
-Future<bool> needsOnboarding(NeedsOnboardingRef ref, String userId) async {
+Future<bool> needsOnboarding(Ref ref, String userId) async {
   try {
     final userDoc = await FirebaseFirestore.instance
         .collection('users')
@@ -28,7 +28,7 @@ Future<bool> needsOnboarding(NeedsOnboardingRef ref, String userId) async {
 
 @riverpod
 Future<OnboardingState?> onboardingState(
-  OnboardingStateRef ref,
+  Ref ref,
   String userId,
 ) async {
   try {
@@ -45,7 +45,7 @@ Future<OnboardingState?> onboardingState(
 }
 
 @Riverpod(keepAlive: true)
-List<String> categories(CategoriesRef ref) => const [
+List<String> categories(Ref ref) => const [
       'Addiction',
       'Advisory',
       'Arabic Studies',

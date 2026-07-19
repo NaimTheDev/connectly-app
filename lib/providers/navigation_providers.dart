@@ -35,7 +35,7 @@ class NavigationNotifier extends _$NavigationNotifier {
 final navigationController = ValueNotifier<int>(0);
 
 @riverpod
-NavigationTab currentNavigationTab(CurrentNavigationTabRef ref) {
-  final index = ref.watch(navigationNotifierProvider);
+NavigationTab currentNavigationTab(Ref ref) {
+  final index = ref.watch(navigationProvider);
   return NavigationTab.fromIndex(index);
 }

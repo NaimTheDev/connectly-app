@@ -5,15 +5,15 @@ import '../services/auth_service.dart';
 part 'auth_providers.g.dart';
 
 @Riverpod(keepAlive: true)
-AuthService authService(AuthServiceRef ref) => AuthService();
+AuthService authService(Ref ref) => AuthService();
 
 @riverpod
-Stream<User?> firebaseUserStream(FirebaseUserStreamRef ref) {
+Stream<User?> firebaseUserStream(Ref ref) {
   return ref.watch(authServiceProvider).firebaseUserStream;
 }
 
 @riverpod
-Stream<bool> isSignedIn(IsSignedInRef ref) {
+Stream<bool> isSignedIn(Ref ref) {
   return ref
       .watch(authServiceProvider)
       .firebaseUserStream
