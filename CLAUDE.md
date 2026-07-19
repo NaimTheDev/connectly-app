@@ -109,7 +109,8 @@ TypeScript (Firebase Functions v2). Key callables consumed by the Flutter app:
 |---|---|---|
 | `availableTimes` | `onCall` | Fetches 7-day Calendly availability for a mentor |
 | `scheduleCalendlyInvitee` | `onCall` | Books a Calendly slot on behalf of the mentee |
-| `getCalendlyOAuthUrl` | `onCall` | *(to be implemented)* Returns the Calendly OAuth redirect URL for mentor onboarding |
+| `getCalendlyOAuthUrl` | `onCall` | Returns the Calendly OAuth 2.1 authorization URL for mentor onboarding; encodes `uid` in `state` |
+| `calendlyOAuthCallback` | `onRequest` | Receives the Calendly OAuth redirect; exchanges code for tokens, writes `access_token`/`event_type_uri` to `mentors/{uid}/calendlyInfo/default`, sets `isCalendlySetup: true` on `mentors/{uid}` |
 | `calendlyWebhook` | `onRequest` | Receives `invitee.created`/`invitee.canceled` Calendly webhook events and writes `users/{uid}/scheduled_calls` |
 
 Webhook signature validation lives in `functions/src/utils/signature-validation.ts`. The secret is stored in `functions/.env` (`CALENDLY_WEBHOOK_SECRET`).
