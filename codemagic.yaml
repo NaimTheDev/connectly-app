@@ -11,8 +11,10 @@ workflows:
 
     environment:
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.naimapps.connectly
+        provisioning_profiles:
+          - "Connectly ProvProfile"
+        certificates:
+          - developer_certificate
       flutter: stable
       xcode: latest
       cocoapods: default
@@ -43,15 +45,10 @@ workflows:
         script: flutter test
         ignore_failure: true
 
-      - name: Set up code signing (Fetch or Create Profile)
+      - name: Set up code signing settings on Xcode project
         script: |
-          keychain initialize
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --create
-          keychain add-certificates
-          # This configures Xcode and generates /Users/builder/export_options.plist
           xcode-project use-profiles
+          # This configures Xcode and generates /Users/builder/export_options.plist
 
       - name: Install CocoaPods dependencies
         script: find . -name "Podfile" -execdir pod install \;
