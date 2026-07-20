@@ -1,0 +1,93 @@
+# Codemagic CI/CD — Connectly (iOS → TestFlight)
+# Docs: https://docs.codemagic.io/yaml-quick-start/first-signed-build
+#
+# One-time setup in the Codemagic UI before this works:
+#   1. Team/App settings → Integrations → App Store Connect: add an API key
+#      (needs the "App Manager" role). Note the integration NAME you give it and
+#      make it match `integrations.app_store_connect` below (default here: "codemagic").
+#   2. The app record for bundle id `com.naimapps.connectly` must already exist in
+#      App Store Connect (it does — it's reserved there).
+#   3. Codemagic manages signing automatically (App Store distribution certificate +
+#      provisioning profile) via that API key; `xcode-project use-profiles` wires it
+#      into the Xcode project at build time. No manual certs needed.
+
+workflows:
+  ios-testflight:
+    name: iOS → TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 90
+
+    integrations:
+      # Must match the App Store Connect API key integration name set in the Codemagic UI.
+      app_store_connect: codemagic
+
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.naimapps.connectly
+      flutter: stable          # local dev is on 3.44.6 stable; pin to "3.44.6" if you want reproducible builds
+      xcode: latest
+      cocoapods: default
+      vars:
+        BUNDLE_ID: "com.naimapps.connectly"
+        APP_VERSION: "2.0.0"   # keep in sync with `version:` in pubspec.yaml
+
+    # Build on pushes to main; adjust or remove as you like.
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      # REQUIRED for this project: freezed / riverpod_generator / json_serializable
+      # outputs (*.freezed.dart, *.g.dart) are gitignored. Without this step the
+      # `part '...'` directives reference missing files and the build fails.
+      - name: Run build_runner code generation
+        script: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Flutter analyze
+        script: flutter analyze
+        ignore_failure: true   # informational for now; drop this line to make lints a hard gate
+
+      - name: Flutter unit tests
+        script: flutter test
+        ignore_failure: true   # drop this line once the suite is green in CI
+
+      - name: Set up code signing (use App Store Connect profiles)
+        script: xcode-project use-profiles
+
+      - name: Install CocoaPods dependencies
+        script: find . -name "Podfile" -execdir pod install \;
+
+      - name: Flutter build IPA
+        script: |
+          flutter build ipa --release \
+            --build-name="$APP_VERSION" \
+            --build-number=$PROJECT_BUILD_NUMBER \
+            --export-options-plist=/Users/builder/export_options.plist
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        # Beta review is only required for external groups. Uncomment and name the
+        # internal tester group(s) you created in App Store Connect to auto-distribute:
+        # beta_groups:
+        #   - Internal Testers
+      email:
+        recipients:
+          - naim@evergreenridgetech.com
+        notify:
+          success: true
+          failure: true
