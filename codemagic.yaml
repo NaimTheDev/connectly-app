@@ -1,15 +1,4 @@
 # Codemagic CI/CD — Connectly (iOS → TestFlight)
-# Docs: https://docs.codemagic.io/yaml-quick-start/first-signed-build
-#
-# One-time setup in the Codemagic UI before this works:
-#   1. Team/App settings → Integrations → App Store Connect: add an API key
-#      (needs the "App Manager" role). Note the integration NAME you give it and
-#      make it match `integrations.app_store_connect` below (default here: "codemagic").
-#   2. The app record for bundle id `com.naimapps.connectly` must already exist in
-#      App Store Connect (it does — it's reserved there).
-#   3. Codemagic manages signing automatically (App Store distribution certificate +
-#      provisioning profile) via that API key; `xcode-project use-profiles` wires it
-#      into the Xcode project at build time. No manual certs needed.
 
 workflows:
   ios-testflight:
@@ -18,23 +7,19 @@ workflows:
     max_build_duration: 90
 
     integrations:
-      # Must match the App Store Connect API key integration name set in the Codemagic UI.
-      app_store_connect: codemagic
+      app_store_connect: codemagic # Must match Team Settings key name
 
     environment:
-      # No `ios_signing:` block here on purpose. That block only FETCHES an
-      # already-existing profile; since com.naimapps.connectly has never had an
-      # App Store profile/cert generated, there is nothing to fetch (that's the
-      # "No matching profiles found" error). Instead we CREATE them on the fly in
-      # the "Set up code signing" script below, using the App Store Connect API key.
-      flutter: stable          # local dev is on 3.44.6 stable; pin to "3.44.6" if you want reproducible builds
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.naimapps.connectly
+      flutter: stable
       xcode: latest
       cocoapods: default
       vars:
         BUNDLE_ID: "com.naimapps.connectly"
-        APP_VERSION: "2.0.0"   # keep in sync with `version:` in pubspec.yaml
+        APP_VERSION: "2.0.0"
 
-    # Build on pushes to main; adjust or remove as you like.
     triggering:
       events:
         - push
@@ -47,31 +32,25 @@ workflows:
       - name: Get Flutter packages
         script: flutter pub get
 
-      # REQUIRED for this project: freezed / riverpod_generator / json_serializable
-      # outputs (*.freezed.dart, *.g.dart) are gitignored. Without this step the
-      # `part '...'` directives reference missing files and the build fails.
       - name: Run build_runner code generation
         script: dart run build_runner build --delete-conflicting-outputs
 
       - name: Flutter analyze
         script: flutter analyze
-        ignore_failure: true   # informational for now; drop this line to make lints a hard gate
+        ignore_failure: true
 
       - name: Flutter unit tests
         script: flutter test
-        ignore_failure: true   # drop this line once the suite is green in CI
+        ignore_failure: true
 
-      # Creates the App Store distribution certificate + provisioning profile if
-      # they don't exist yet (and registers the bundle id identifier if missing),
-      # then wires them into the Xcode project. Uses the API key env vars that the
-      # `integrations.app_store_connect` block injects automatically.
-      - name: Set up code signing (create/fetch App Store profile)
+      - name: Set up code signing (Fetch or Create Profile)
         script: |
           keychain initialize
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create
           keychain add-certificates
+          # This configures Xcode and generates /Users/builder/export_options.plist
           xcode-project use-profiles
 
       - name: Install CocoaPods dependencies
@@ -93,10 +72,6 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        # Beta review is only required for external groups. Uncomment and name the
-        # internal tester group(s) you created in App Store Connect to auto-distribute:
-        # beta_groups:
-        #   - Internal Testers
       email:
         recipients:
           - naim@evergreenridgetech.com
