@@ -14,7 +14,7 @@ workflows:
         provisioning_profiles:
           - "Connectly ProvProfile"
         certificates:
-          - developer_certificate
+          - connectly_distrobution_certificate
       flutter: stable
       xcode: latest
       cocoapods: default
