@@ -7,6 +7,7 @@ import * as logger from 'firebase-functions/logger';
 import {Timestamp} from 'firebase-admin/firestore';
 import {CalendlyWebhookEvent, CalendlyWebhookPayload, CalendlyEventType, ScheduledCallData} from '../types/calendly';
 import {extractMentorUri, findUserById} from './user-lookup';
+import {getMentorAccessToken, resolveJoinUrl} from './calendly-api';
 
 /**
  * Maps Calendly webhook data to ScheduledCall Firestore document format
@@ -52,7 +53,13 @@ export async function mapCalendlyToScheduledCall(webhookPayload: CalendlyWebhook
       });
     }
 
-    const mappedData = {
+    // The invitee.created webhook does not reliably carry join_url; these fields
+    // capture whatever the payload has and are enriched via the API in
+    // handleInviteeCreated when the link is not yet present.
+    const payloadLocation = scheduled_event.location;
+    const payloadJoinUrl = payloadLocation?.join_url;
+
+    const mappedData: ScheduledCallData = {
       calendlyEventUri: scheduled_event.uri,
       cancelUrl: webhookPayload.cancel_url,
       createdAt: Timestamp.fromDate(new Date(webhookPayload.created_at)),
@@ -67,7 +74,11 @@ export async function mapCalendlyToScheduledCall(webhookPayload: CalendlyWebhook
       startTime: scheduled_event.start_time,
       status: determineCallStatus(eventType, webhookPayload.status),
       timezone: webhookPayload.timezone,
-      joinUrl: scheduled_event.location?.join_url || undefined,
+      videoStatus: deriveVideoStatus(payloadJoinUrl, payloadLocation?.status, payloadLocation?.type),
+      joinUrlPending: !payloadJoinUrl && payloadLocation?.status === 'processing',
+      // Only include joinUrl when Calendly actually provides one — writing
+      // `undefined` to Firestore throws "Cannot use undefined as a Firestore value".
+      ...(payloadJoinUrl ? {joinUrl: payloadJoinUrl} : {}),
     };
 
     logger.info('✅ Successfully mapped Calendly data', {
@@ -100,6 +111,77 @@ function determineCallStatus(eventType: string, payloadStatus: string): string {
       return 'rescheduled';
     default:
       return payloadStatus || 'active';
+  }
+}
+
+/**
+ * Derives the video/conferencing link lifecycle status for a scheduled call.
+ * @param joinUrl - The join URL if already known
+ * @param status - Calendly's location.status (e.g. 'processing', 'failed')
+ * @param type - Calendly's location.type (e.g. 'zoom_conference')
+ * @returns 'ready' | 'processing' | 'failed' | 'none'
+ */
+function deriveVideoStatus(
+  joinUrl?: string | null,
+  status?: string | null,
+  type?: string | null
+): string {
+  if (joinUrl) return 'ready';
+  if (status === 'failed') return 'failed';
+  if (status === 'processing') return 'processing';
+  // A conferencing location without a link yet — the provider is still
+  // provisioning it, so treat as processing (pending) rather than 'none'.
+  if (type && type.includes('conference')) return 'processing';
+  return 'none';
+}
+
+/**
+ * Fetches the meeting join_url from the Calendly scheduled-events endpoint and
+ * mutates the given scheduledCallData in place. The invitee.created webhook does
+ * not reliably include join_url, so this is required to capture Zoom/Meet links.
+ * @param scheduledCallData - The mapped call data to enrich (mutated)
+ * @param mentorId - The mentor's Firebase user ID (owns the Calendly token)
+ * @param scheduledEventUri - The scheduled event URI from the webhook payload
+ */
+async function enrichWithJoinUrl(
+  scheduledCallData: ScheduledCallData,
+  mentorId: string,
+  scheduledEventUri: string
+): Promise<void> {
+  const accessToken = await getMentorAccessToken(mentorId);
+  if (!accessToken) {
+    logger.warn('⚠️ No mentor Calendly token available; cannot fetch join_url', {
+      mentorId,
+      scheduledEventUri,
+    });
+    return;
+  }
+
+  const location = await resolveJoinUrl(accessToken, scheduledEventUri);
+
+  if (location.joinUrl) {
+    scheduledCallData.joinUrl = location.joinUrl;
+    scheduledCallData.videoStatus = 'ready';
+    scheduledCallData.joinUrlPending = false;
+    logger.info('✅ Fetched join_url from scheduled event', {scheduledEventUri});
+    return;
+  }
+
+  scheduledCallData.videoStatus = deriveVideoStatus(null, location.status, location.type);
+  scheduledCallData.joinUrlPending = scheduledCallData.videoStatus === 'processing';
+
+  if (location.status === 'failed') {
+    logger.warn(
+      '⚠️ Calendly could not create a video link (location.status=failed). ' +
+        "Check the mentor's Zoom integration in Calendly.",
+      {mentorId, scheduledEventUri, type: location.type}
+    );
+  } else {
+    logger.info('ℹ️ join_url not yet available after retries', {
+      scheduledEventUri,
+      status: location.status,
+      type: location.type,
+    });
   }
 }
 
@@ -238,7 +320,14 @@ export async function handleInviteeCreated(
   try {
     logger.info('🔧 Step 1: Mapping Calendly data to ScheduledCall format');
     const scheduledCallData = await mapCalendlyToScheduledCall(webhookPayload, eventType, mentorId);
-    
+
+    // The invitee.created webhook does not reliably carry join_url — fetch it
+    // from the scheduled-events endpoint when it isn't already present.
+    if (!scheduledCallData.joinUrl) {
+      logger.info('🔧 Step 1b: Fetching join_url from Calendly scheduled event');
+      await enrichWithJoinUrl(scheduledCallData, mentorId, webhookPayload.scheduled_event.uri);
+    }
+
     logger.info('🔧 Step 2: Creating scheduled call in Firestore for both user and mentor');
     
     // Create scheduled call document for the user (invitee)

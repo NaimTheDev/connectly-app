@@ -362,6 +362,46 @@ class _CallCard extends StatelessWidget {
                     ),
                   ],
                 ),
+              ] else if (isUpcoming) ...[
+                // No join link yet: distinguish "still generating" from "failed".
+                if ((call.joinUrlPending ?? false) ||
+                    call.videoStatus == 'processing') ...[
+                  Spacers.h12,
+                  Row(
+                    children: [
+                      Icon(Icons.hourglass_top, size: 16, color: brand.graphite),
+                      Spacers.w8,
+                      Expanded(
+                        child: Text(
+                          'Video link is being generated…',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: brand.graphite,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else if (call.videoStatus == 'failed') ...[
+                  Spacers.h12,
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.videocam_off_outlined,
+                        size: 16,
+                        color: brand.danger,
+                      ),
+                      Spacers.w8,
+                      Expanded(
+                        child: Text(
+                          'Video link unavailable — the organizer will follow up.',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: brand.danger,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ],
           ),

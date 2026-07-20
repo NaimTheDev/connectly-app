@@ -76,7 +76,7 @@ export const healthCheck = onRequest(
 export const availableTimes = onCall(
   {
     region: "us-central1",
-    memory: "128MiB",
+    memory: "256MiB",
     timeoutSeconds: 30,
   },
   async (request) => {

@@ -505,7 +505,14 @@ class _FeaturedCallCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(brand.radius - 4),
               ),
             ),
-            child: const Text('Join Call'),
+            child: Text(
+              (call.joinUrl != null && call.joinUrl!.isNotEmpty)
+                  ? 'Join Call'
+                  : ((call.joinUrlPending ?? false) ||
+                        call.videoStatus == 'processing')
+                  ? 'Link pending'
+                  : 'No link',
+            ),
           ),
         ],
       ),

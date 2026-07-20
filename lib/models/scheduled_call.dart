@@ -27,6 +27,9 @@ abstract class ScheduledCall with _$ScheduledCall {
     required String status,
     required String timezone,
     String? joinUrl,
+    // Video link lifecycle: 'ready' | 'processing' | 'failed' | 'none'
+    String? videoStatus,
+    bool? joinUrlPending,
   }) = _ScheduledCall;
 
   factory ScheduledCall.fromJson(Map<String, dynamic> json) =>
@@ -69,6 +72,8 @@ abstract class ScheduledCall with _$ScheduledCall {
       status: data['status'] as String? ?? '',
       timezone: data['timezone'] as String? ?? '',
       joinUrl: data['joinUrl'] as String?,
+      videoStatus: data['videoStatus'] as String?,
+      joinUrlPending: data['joinUrlPending'] as bool?,
     );
   }
 
@@ -90,5 +95,7 @@ abstract class ScheduledCall with _$ScheduledCall {
     'status': status,
     'timezone': timezone,
     'joinUrl': joinUrl,
+    'videoStatus': videoStatus,
+    'joinUrlPending': joinUrlPending,
   };
 }

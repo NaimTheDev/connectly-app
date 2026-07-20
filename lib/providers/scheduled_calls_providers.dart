@@ -5,37 +5,42 @@ import '../models/scheduled_call.dart';
 
 part 'scheduled_calls_providers.g.dart';
 
+// Streams the user's scheduled calls so the UI updates live as the Calendly
+// webhook writes/updates documents — no app restart required.
 @riverpod
-Future<List<ScheduledCall>> scheduledCalls(
+Stream<List<ScheduledCall>> scheduledCalls(
   Ref ref,
   String uid,
-) async {
-  final snapshot = await FirebaseFirestore.instance
+) {
+  return FirebaseFirestore.instance
       .collection('users')
       .doc(uid)
       .collection('scheduled_calls')
-      .get();
+      .snapshots()
+      .map((snapshot) {
+        final now = DateTime.now();
 
-  final now = DateTime.now();
-
-  final calls = snapshot.docs
-      .map((doc) => ScheduledCall.fromFirestore(doc.data()))
-      .where((call) {
-        try {
-          return DateTime.parse(call.endTime).isAfter(now);
-        } catch (e) {
-          debugPrint('scheduledCalls: could not parse endTime for call — $e');
-          return false;
-        }
-      })
-      .toList()
-    ..sort((a, b) {
-      try {
-        return DateTime.parse(a.endTime).compareTo(DateTime.parse(b.endTime));
-      } catch (_) {
-        return 0;
-      }
-    });
-
-  return calls;
+        return snapshot.docs
+            .map((doc) => ScheduledCall.fromFirestore(doc.data()))
+            .where((call) {
+              try {
+                return DateTime.parse(call.endTime).isAfter(now);
+              } catch (e) {
+                debugPrint(
+                  'scheduledCalls: could not parse endTime for call — $e',
+                );
+                return false;
+              }
+            })
+            .toList()
+          ..sort((a, b) {
+            try {
+              return DateTime.parse(
+                a.endTime,
+              ).compareTo(DateTime.parse(b.endTime));
+            } catch (_) {
+              return 0;
+            }
+          });
+      });
 }
