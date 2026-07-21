@@ -305,12 +305,16 @@ export const calendlyOAuthCallback = onRequest(
         }
       );
 
-      batch.update(firestore.collection('mentors').doc(uid), {
-        isCalendlySetup: true,
-        calendlyUserUri: calendlyUser.uri,
-        calendlyUrl: calendlyUser.scheduling_url,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      batch.set(
+        firestore.collection('mentors').doc(uid),
+        {
+          isCalendlySetup: true,
+          calendlyUserUri: calendlyUser.uri,
+          calendlyUrl: calendlyUser.scheduling_url,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        {merge: true}
+      );
 
       await batch.commit();
 
