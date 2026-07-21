@@ -641,9 +641,9 @@ class MentorDetailScreen extends ConsumerWidget {
       if (firebaseUser == null) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please sign in to start a chat'),
-              backgroundColor: Colors.red,
+            SnackBar(
+              content: const Text('Please sign in to start a chat'),
+              backgroundColor: Theme.of(context).extension<AppBrand>()!.danger,
             ),
           );
         }
@@ -701,7 +701,7 @@ class MentorDetailScreen extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMessage),
-            backgroundColor: Colors.red,
+            backgroundColor: Theme.of(context).extension<AppBrand>()!.danger,
             duration: const Duration(
               seconds: 6,
             ), // Longer duration for debug messages
@@ -765,7 +765,7 @@ class MentorDetailScreen extends ConsumerWidget {
       if (data.containsKey('error')) {
         final msg = data['error']?.toString() ?? 'Failed to fetch availability';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg), backgroundColor: Colors.red),
+          SnackBar(content: Text(msg), backgroundColor: Theme.of(context).extension<AppBrand>()!.danger),
         );
         return;
       }
@@ -845,7 +845,7 @@ class MentorDetailScreen extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to fetch availability: $errorMessage'),
-            backgroundColor: Colors.red,
+            backgroundColor: Theme.of(context).extension<AppBrand>()!.danger,
           ),
         );
       }
@@ -861,9 +861,9 @@ class MentorDetailScreen extends ConsumerWidget {
     if (firebaseUser == null) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please sign in to book a session'),
-            backgroundColor: Colors.red,
+          SnackBar(
+            content: const Text('Please sign in to book a session'),
+            backgroundColor: Theme.of(context).extension<AppBrand>()!.danger,
           ),
         );
       }
@@ -913,9 +913,9 @@ class MentorDetailScreen extends ConsumerWidget {
       if (raw is! Map) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Unexpected response from scheduling service'),
-              backgroundColor: Colors.red,
+            SnackBar(
+              content: const Text('Unexpected response from scheduling service'),
+              backgroundColor: Theme.of(context).extension<AppBrand>()!.danger,
             ),
           );
         }
@@ -929,7 +929,7 @@ class MentorDetailScreen extends ConsumerWidget {
             response['error']?.toString() ?? 'Failed to schedule this session';
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(msg), backgroundColor: Colors.red),
+            SnackBar(content: Text(msg), backgroundColor: Theme.of(context).extension<AppBrand>()!.danger),
           );
         }
         return;
@@ -939,9 +939,9 @@ class MentorDetailScreen extends ConsumerWidget {
       if (resourceRaw is! Map) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Missing confirmation details from Calendly'),
-              backgroundColor: Colors.red,
+            SnackBar(
+              content: const Text('Missing confirmation details from Calendly'),
+              backgroundColor: Theme.of(context).extension<AppBrand>()!.danger,
             ),
           );
         }
@@ -1045,7 +1045,7 @@ class MentorDetailScreen extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Unable to book session: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: Theme.of(context).extension<AppBrand>()!.danger,
           ),
         );
       }

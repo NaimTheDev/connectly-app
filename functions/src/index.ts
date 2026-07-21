@@ -8,7 +8,7 @@ import * as logger from "firebase-functions/logger";
 import * as admin from 'firebase-admin';
 import axios from 'axios';
 import {handleCalendlyWebhook} from "./calendly-webhook";
-import {CalendlyInviteeResponse} from "./types/calendly";
+import {CalendlyInviteeResponse, CalendlyTokenResponse, CalendlyUserResource, CalendlyEventTypeItem} from "./types/calendly";
 
 /**
  * Type representing a single available timeslot returned to clients.
@@ -76,7 +76,7 @@ export const healthCheck = onRequest(
 export const availableTimes = onCall(
   {
     region: "us-central1",
-    memory: "128MiB",
+    memory: "256MiB",
     timeoutSeconds: 30,
   },
   async (request) => {
@@ -175,6 +175,164 @@ export const availableTimes = onCall(
   }
 );
 
+export const getCalendlyOAuthUrl = onCall(
+  {region: 'us-central1', memory: '128MiB', timeoutSeconds: 10},
+  async (request) => {
+    if (!request.auth) return {error: 'Authentication required'};
+    const uid = request.auth.uid;
+
+    const clientId = process.env.CALENDLY_CLIENT_ID;
+    const redirectUri = process.env.CALENDLY_REDIRECT_URI;
+
+    if (!clientId || !redirectUri) {
+      logger.error('Missing Calendly OAuth env vars (CALENDLY_CLIENT_ID, CALENDLY_REDIRECT_URI)');
+      return {error: 'Server configuration error'};
+    }
+
+    const state = Buffer.from(uid).toString('base64url');
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      state,
+    });
+
+    return {url: `https://auth.calendly.com/oauth/authorize?${params.toString()}`};
+  }
+);
+
+export const calendlyOAuthCallback = onRequest(
+  {region: 'us-central1', memory: '256MiB', timeoutSeconds: 30},
+  async (request, response) => {
+    const {code, state, error} = request.query as Record<string, string>;
+
+    if (error) {
+      logger.warn('Calendly OAuth denied by user', {error});
+      response.status(200).send('<html><body><h2>Calendly connection cancelled. You can close this tab and return to the app.</h2></body></html>');
+      return;
+    }
+
+    if (!code || !state) {
+      response.status(400).send('Missing code or state');
+      return;
+    }
+
+    let uid: string;
+    try {
+      uid = Buffer.from(state, 'base64url').toString('utf8');
+      if (!uid) throw new Error('empty uid');
+    } catch {
+      response.status(400).send('Invalid state parameter');
+      return;
+    }
+
+    const clientId = process.env.CALENDLY_CLIENT_ID ?? '';
+    const clientSecret = process.env.CALENDLY_CLIENT_SECRET ?? '';
+    const redirectUri = process.env.CALENDLY_REDIRECT_URI ?? '';
+
+    if (!clientId || !clientSecret || !redirectUri) {
+      logger.error('Missing Calendly OAuth env vars in callback');
+      response.status(500).send('Server configuration error');
+      return;
+    }
+
+    try {
+      if (!admin.apps.length) admin.initializeApp();
+
+      const tokenResp = await axios.post<CalendlyTokenResponse>(
+        'https://auth.calendly.com/oauth/token',
+        new URLSearchParams({
+          grant_type: 'authorization_code',
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: redirectUri,
+          code,
+        }).toString(),
+        {
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          timeout: 15000,
+          validateStatus: () => true,
+        }
+      );
+
+      if (tokenResp.status !== 200) {
+        logger.error('Calendly token exchange failed', {status: tokenResp.status, body: tokenResp.data});
+        response.status(502).send('Failed to exchange token with Calendly');
+        return;
+      }
+
+      const {access_token, refresh_token} = tokenResp.data;
+
+      const [userResp, eventTypesResp] = await Promise.all([
+        axios.get<{resource: CalendlyUserResource}>('https://api.calendly.com/users/me', {
+          headers: {Authorization: `Bearer ${access_token}`},
+          timeout: 15000,
+          validateStatus: () => true,
+        }),
+        axios.get<{collection: CalendlyEventTypeItem[]}>('https://api.calendly.com/event_types', {
+          params: {user: tokenResp.data.owner, active: true},
+          headers: {Authorization: `Bearer ${access_token}`},
+          timeout: 15000,
+          validateStatus: () => true,
+        }),
+      ]);
+
+      if (userResp.status !== 200) {
+        logger.error('Failed to fetch Calendly user', {status: userResp.status});
+        response.status(502).send('Failed to fetch Calendly user info');
+        return;
+      }
+
+      const calendlyUser = userResp.data.resource;
+      const eventTypes = Array.isArray(eventTypesResp.data?.collection)
+        ? eventTypesResp.data.collection
+        : [];
+      const primaryEventType =
+        eventTypes.find((et) => et.active && et.kind === 'solo') ?? eventTypes[0] ?? null;
+
+      const firestore = admin.firestore();
+      const batch = firestore.batch();
+
+      batch.set(
+        firestore.collection('mentors').doc(uid).collection('calendlyInfo').doc('default'),
+        {
+          access_token,
+          refresh_token,
+          token_owner: tokenResp.data.owner,
+          event_type_uri: primaryEventType?.uri ?? null,
+          updated_at: admin.firestore.FieldValue.serverTimestamp(),
+        }
+      );
+
+      batch.set(
+        firestore.collection('mentors').doc(uid),
+        {
+          isCalendlySetup: true,
+          calendlyUserUri: calendlyUser.uri,
+          calendlyUrl: calendlyUser.scheduling_url,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        {merge: true}
+      );
+
+      await batch.commit();
+
+      logger.info('Calendly OAuth completed', {uid, calendlyUserUri: calendlyUser.uri});
+
+      response.status(200).send(
+        '<html><body style="font-family:sans-serif;text-align:center;padding-top:80px">' +
+        '<h2>Calendly connected!</h2>' +
+        '<p>You can close this tab and return to the Connectly app.</p>' +
+        '</body></html>'
+      );
+    } catch (err) {
+      logger.error('Error in calendlyOAuthCallback', {uid, err});
+      response.status(500).send('Internal server error');
+    }
+  }
+);
+
 export const scheduleCalendlyInvitee = onCall(
   {
     region: "us-central1",
@@ -263,7 +421,6 @@ export const scheduleCalendlyInvitee = onCall(
         },
         location: {
           kind: 'zoom_conference',
-          connected: true,
         },
       };
 

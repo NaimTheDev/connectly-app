@@ -1,15 +1,20 @@
-class CalendlyQuestionAnswer {
-  final String question;
-  final String answer;
-  final int position;
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-  const CalendlyQuestionAnswer({
-    required this.question,
-    required this.answer,
-    required this.position,
-  });
+part 'calendly_invitee_resource.freezed.dart';
+part 'calendly_invitee_resource.g.dart';
 
-  factory CalendlyQuestionAnswer.fromMap(Map<String, dynamic> data) {
+@freezed
+abstract class CalendlyQuestionAnswer with _$CalendlyQuestionAnswer {
+  const factory CalendlyQuestionAnswer({
+    required String question,
+    required String answer,
+    required int position,
+  }) = _CalendlyQuestionAnswer;
+
+  factory CalendlyQuestionAnswer.fromJson(Map<String, dynamic> json) =>
+      _$CalendlyQuestionAnswerFromJson(json);
+
+  static CalendlyQuestionAnswer fromMap(Map<String, dynamic> data) {
     return CalendlyQuestionAnswer(
       question: data['question']?.toString() ?? '',
       answer: data['answer']?.toString() ?? '',
@@ -20,59 +25,42 @@ class CalendlyQuestionAnswer {
   }
 }
 
-class CalendlyInviteeResource {
-  final String uri;
-  final String email;
-  final String name;
-  final String status;
-  final String? firstName;
-  final String? lastName;
-  final String? timezone;
-  final String event;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  final bool? rescheduled;
-  final String? cancelUrl;
-  final String? rescheduleUrl;
-  final String? schedulingMethod;
-  final String? inviteeScheduledBy;
-  final String? textReminderNumber;
-  final List<CalendlyQuestionAnswer> questionsAndAnswers;
+@freezed
+abstract class CalendlyInviteeResource with _$CalendlyInviteeResource {
+  const factory CalendlyInviteeResource({
+    required String uri,
+    required String email,
+    required String name,
+    required String status,
+    required String event,
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    required List<CalendlyQuestionAnswer> questionsAndAnswers,
+    @JsonKey(name: 'first_name') String? firstName,
+    @JsonKey(name: 'last_name') String? lastName,
+    String? timezone,
+    bool? rescheduled,
+    @JsonKey(name: 'cancel_url') String? cancelUrl,
+    @JsonKey(name: 'reschedule_url') String? rescheduleUrl,
+    @JsonKey(name: 'scheduling_method') String? schedulingMethod,
+    @JsonKey(name: 'invitee_scheduled_by') String? inviteeScheduledBy,
+    @JsonKey(name: 'text_reminder_number') String? textReminderNumber,
+  }) = _CalendlyInviteeResource;
 
-  const CalendlyInviteeResource({
-    required this.uri,
-    required this.email,
-    required this.name,
-    required this.status,
-    required this.event,
-    required this.createdAt,
-    required this.updatedAt,
-    required this.questionsAndAnswers,
-    this.firstName,
-    this.lastName,
-    this.timezone,
-    this.rescheduled,
-    this.cancelUrl,
-    this.rescheduleUrl,
-    this.schedulingMethod,
-    this.inviteeScheduledBy,
-    this.textReminderNumber,
-  });
+  factory CalendlyInviteeResource.fromJson(Map<String, dynamic> json) =>
+      _$CalendlyInviteeResourceFromJson(json);
 
-  factory CalendlyInviteeResource.fromMap(Map<String, dynamic> data) {
-    final questions = (data['questions_and_answers'] as List<dynamic>?)
-            ?.map((item) => CalendlyQuestionAnswer.fromMap(
-                  Map<String, dynamic>.from(
-                    item as Map<dynamic, dynamic>,
-                  ),
-                ))
-            .toList() ??
-        <CalendlyQuestionAnswer>[];
-
+  static CalendlyInviteeResource fromMap(Map<String, dynamic> data) {
     DateTime parseDate(String? raw) {
       if (raw == null) return DateTime.fromMillisecondsSinceEpoch(0);
       return DateTime.tryParse(raw) ?? DateTime.fromMillisecondsSinceEpoch(0);
     }
+
+    final questions = (data['questions_and_answers'] as List<dynamic>?)
+            ?.map((item) =>
+                CalendlyQuestionAnswer.fromMap(Map<String, dynamic>.from(item as Map)))
+            .toList() ??
+        <CalendlyQuestionAnswer>[];
 
     return CalendlyInviteeResource(
       uri: data['uri']?.toString() ?? '',

@@ -1,66 +1,45 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../models/message.dart';
 
-/// Messages in a chat (only for participants)
-final messagesProvider =
-    FutureProvider.family<List<Map<String, dynamic>>, String>((
-      ref,
-      chatId,
-    ) async {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('chats')
-          .doc(chatId)
-          .collection('messages')
-          .orderBy('timestamp', descending: true)
-          .get();
-      return snapshot.docs.map((doc) => doc.data()).toList();
-    });
+part 'messages_providers.g.dart';
 
-/// Real-time stream of messages for a specific chat
-final messagesStreamProvider = StreamProvider.family<List<Message>, String>((
-  ref,
-  chatId,
-) {
+@riverpod
+Stream<List<Message>> messagesStream(Ref ref, String chatId) {
   return FirebaseFirestore.instance
       .collection('chats')
       .doc(chatId)
       .collection('messages')
-      .orderBy('timestamp', descending: false) // Ascending for chat display
+      .orderBy('timestamp', descending: false)
       .snapshots()
-      .map((snapshot) {
-        return snapshot.docs
-            .map((doc) => Message.fromMap(doc.id, doc.data()))
-            .toList();
-      });
+      .map((snap) =>
+          snap.docs.map((doc) => Message.fromMap(doc.id, doc.data())).toList());
+}
+
+typedef SendMessageCallback = Future<void> Function({
+  required String chatId,
+  required String message,
+  required String senderId,
+  required String receiverId,
 });
 
-/// Provider to send a message to a chat
-final sendMessageProvider = Provider((ref) {
-  return (
-    String chatId,
-    String message,
-    String senderId,
-    String receiverId,
-  ) async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('chats')
-          .doc(chatId)
-          .collection('messages')
-          .add({
-            'message': message,
-            'senderId': senderId,
-            'receiverId': receiverId,
-            'timestamp': DateTime.now().millisecondsSinceEpoch,
-          });
-
-      // Update the chat's timestamp to reflect latest activity
-      await FirebaseFirestore.instance.collection('chats').doc(chatId).update({
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-      });
-    } catch (e) {
-      throw Exception('Failed to send message: $e');
-    }
+@Riverpod(keepAlive: true)
+SendMessageCallback sendMessage(Ref ref) {
+  return ({
+    required String chatId,
+    required String message,
+    required String senderId,
+    required String receiverId,
+  }) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final chatRef =
+        FirebaseFirestore.instance.collection('chats').doc(chatId);
+    await chatRef.collection('messages').add({
+      'message': message,
+      'senderId': senderId,
+      'receiverId': receiverId,
+      'timestamp': now,
+    });
+    await chatRef.update({'timestamp': now});
   };
-});
+}

@@ -64,21 +64,21 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCP4Zxz_ogQW6LWt9KKG8-2j4bScxiEfVg',
-    appId: '1:851556269464:ios:a08fadd5d5787222d5bfed',
+    appId: '1:851556269464:ios:31b68396314047b5d5bfed',
     messagingSenderId: '851556269464',
     projectId: 'halal-social-prod',
     databaseURL: 'https://halal-social-prod-default-rtdb.firebaseio.com',
     storageBucket: 'halal-social-prod.firebasestorage.app',
-    iosBundleId: 'com.example.connectlyApp',
+    iosBundleId: 'com.naimapps.connectly',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyCP4Zxz_ogQW6LWt9KKG8-2j4bScxiEfVg',
-    appId: '1:851556269464:ios:a08fadd5d5787222d5bfed',
+    appId: '1:851556269464:ios:31b68396314047b5d5bfed',
     messagingSenderId: '851556269464',
     projectId: 'halal-social-prod',
     databaseURL: 'https://halal-social-prod-default-rtdb.firebaseio.com',
     storageBucket: 'halal-social-prod.firebasestorage.app',
-    iosBundleId: 'com.example.connectlyApp',
+    iosBundleId: 'com.naimapps.connectly',
   );
 }

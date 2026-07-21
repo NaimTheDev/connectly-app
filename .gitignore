@@ -36,6 +36,10 @@ migrate_working_dir/
 # Firebase auto-generated file
 lib/firebase_options.dart
 
+# Dart code-generation outputs — run `dart run build_runner build` to regenerate
+*.freezed.dart
+*.g.dart
+
 # Symbolication related
 app.*.symbols
 

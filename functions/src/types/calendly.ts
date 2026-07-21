@@ -145,6 +145,10 @@ export interface ScheduledCallData {
   status: string;
   timezone: string;
   joinUrl?: string;
+  // Lifecycle of the video/conferencing link: 'ready' | 'processing' | 'failed' | 'none'
+  videoStatus?: string;
+  // True when a video link is expected but Calendly is still provisioning it
+  joinUrlPending?: boolean;
 }
 
 export interface CalendlyInviteeTracking {
@@ -205,4 +209,33 @@ export interface CalendlyInviteeResource {
 
 export interface CalendlyInviteeResponse {
   resource: CalendlyInviteeResource;
+}
+
+export interface CalendlyTokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+  created_at: number;
+  owner: string;
+  organization: string;
+}
+
+export interface CalendlyUserResource {
+  uri: string;
+  name: string;
+  email: string;
+  scheduling_url: string;
+  timezone: string;
+  current_organization: string;
+}
+
+export interface CalendlyEventTypeItem {
+  uri: string;
+  name: string;
+  active: boolean;
+  scheduling_url: string;
+  slug: string;
+  kind: string;
+  duration: number;
 }

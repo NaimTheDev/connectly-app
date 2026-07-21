@@ -1,0 +1,77 @@
+# Codemagic CI/CD — Connectly (iOS → TestFlight)
+
+workflows:
+  ios-testflight:
+    name: iOS → TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 90
+
+    integrations:
+      app_store_connect: codemagic # Must match Team Settings key name
+
+    environment:
+      ios_signing:
+        provisioning_profiles:
+          - "Connectly ProvProfile"
+        certificates:
+          - connectly_distrobution_certificate
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      vars:
+        BUNDLE_ID: "com.naimapps.connectly"
+        APP_VERSION: "2.0.0"
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Run build_runner code generation
+        script: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Flutter analyze
+        script: flutter analyze
+        ignore_failure: true
+
+      - name: Flutter unit tests
+        script: flutter test
+        ignore_failure: true
+
+      - name: Set up code signing settings on Xcode project
+        script: |
+          xcode-project use-profiles
+          # This configures Xcode and generates /Users/builder/export_options.plist
+
+      - name: Install CocoaPods dependencies
+        script: find . -name "Podfile" -execdir pod install \;
+
+      - name: Flutter build IPA
+        script: |
+          flutter build ipa --release \
+            --build-name="$APP_VERSION" \
+            --build-number=$PROJECT_BUILD_NUMBER \
+            --export-options-plist=/Users/builder/export_options.plist
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+      email:
+        recipients:
+          - naim@evergreenridgetech.com
+        notify:
+          success: true
+          failure: true

@@ -1,4 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart' as gsi;
 
 /// Custom authentication exceptions with user-friendly messages
 abstract class AuthException implements Exception {
@@ -89,6 +91,13 @@ class GoogleSignInException extends AuthException {
       );
 }
 
+/// Raised when the user dismisses the Google account picker. Handled quietly by
+/// the UI (no error card) since it is a deliberate user action, not a failure.
+class SignInCancelledException extends AuthException {
+  const SignInCancelledException()
+    : super('Sign-in was cancelled.', 'sign-in-cancelled');
+}
+
 /// Exception for password reset email not found (specific case)
 class PasswordResetEmailNotFoundException extends AuthException {
   const PasswordResetEmailNotFoundException()
@@ -98,10 +107,14 @@ class PasswordResetEmailNotFoundException extends AuthException {
       );
 }
 
-/// Generic exception for unknown errors
+/// Generic exception for unknown errors. Keeps the original error string so the
+/// underlying cause stays visible to developers (logged), while the UI still
+/// shows a friendly message.
 class UnknownAuthException extends AuthException {
-  const UnknownAuthException(String originalError)
+  const UnknownAuthException(this.originalError)
     : super('An unexpected error occurred. Please try again.', 'unknown');
+
+  final String originalError;
 }
 
 /// Utility class to convert Firebase auth exceptions to custom exceptions
@@ -130,11 +143,16 @@ class AuthExceptionHandler {
       }
     }
 
-    // Handle Google Sign-In specific errors
-    if (error.toString().contains('google_sign_in')) {
+    // Handle google_sign_in 7.x exceptions, which are strongly typed.
+    if (error is gsi.GoogleSignInException) {
+      if (error.code == gsi.GoogleSignInExceptionCode.canceled) {
+        return const SignInCancelledException();
+      }
+      debugPrint('GoogleSignInException: ${error.code} — ${error.description}');
       return const GoogleSignInException();
     }
 
+    debugPrint('Unhandled auth error: $error');
     return UnknownAuthException(error.toString());
   }
 }

@@ -1,7 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/onboarding_state.dart';
 import '../../providers/onboarding_providers.dart';
+import '../../services/url_launcher_service.dart';
 import '../../theme/theme.dart';
 import '../../widgets/spacers.dart';
 
@@ -62,76 +66,112 @@ class _MentorCalendlyScreenState extends ConsumerState<MentorCalendlyScreen>
     super.dispose();
   }
 
+  /// Launches the Calendly OAuth flow.
+  ///
+  /// The backend Cloud Function `getCalendlyOAuthUrl` returns the OAuth
+  /// redirect URL. After the user completes OAuth in the browser, Calendly
+  /// calls back to our server which writes `isCalendlySetup: true` and
+  /// `calendlyUserUri` to the `mentors/{uid}` Firestore document.
+  /// Tapping "Check connection status" below polls that document to confirm.
   Future<void> _setupCalendly() async {
-    setState(() {
-      _isLoading = true;
-    });
-
+    setState(() => _isLoading = true);
     try {
-      // TODO: Implement actual Calendly integration
-      await Future.delayed(const Duration(seconds: 2)); // Simulate API call
+      final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
+      final callable = functions.httpsCallable('getCalendlyOAuthUrl');
+      final result = await callable.call<Map<String, dynamic>>();
+      final oauthUrl = result.data['url'] as String?;
 
-      setState(() {
-        _isCalendlySetup = true;
-      });
+      if (oauthUrl == null || oauthUrl.isEmpty) {
+        throw Exception('No OAuth URL returned from server');
+      }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Calendly integration coming soon!'),
-          backgroundColor: Theme.of(context).extension<AppBrand>()!.info,
-        ),
-      );
+      await UrlLauncherService.launchCalendlyUrl(context, oauthUrl);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Complete the Calendly authorisation in your browser, '
+              'then tap "Check connection status" below.',
+            ),
+            backgroundColor: Theme.of(context).extension<AppBrand>()!.info,
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to setup Calendly: $e'),
+            content: Text('Failed to launch Calendly setup: $e'),
             backgroundColor: Theme.of(context).extension<AppBrand>()!.danger,
           ),
         );
       }
     } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// Polls the mentor's Firestore document to check whether Calendly OAuth
+  /// completed successfully (i.e. the Cloud Function callback ran and wrote
+  /// `isCalendlySetup: true`).
+  Future<void> _checkCalendlyStatus() async {
+    setState(() => _isLoading = true);
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('Not authenticated');
+
+      final doc = await FirebaseFirestore.instance
+          .collection('mentors')
+          .doc(user.uid)
+          .get();
+
+      final isSetup = doc.data()?['isCalendlySetup'] as bool? ?? false;
+      setState(() => _isCalendlySetup = isSetup);
+
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isSetup
+                  ? 'Calendly connected successfully!'
+                  : 'Calendly not yet connected. Complete the browser flow first.',
+            ),
+            backgroundColor: isSetup
+                ? Theme.of(context).extension<AppBrand>()!.success
+                : Theme.of(context).extension<AppBrand>()!.warning,
+          ),
+        );
       }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not check status: $e'),
+            backgroundColor: Theme.of(context).extension<AppBrand>()!.danger,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _skipCalendly() async {
-    print('🔄 SKIP CALENDLY: Starting skip process...');
-    print('📊 Current state: ${widget.currentState.toMap()}');
-
-    setState(() {
-      _isLoading = true;
-    });
-
+    setState(() => _isLoading = true);
     try {
       final onboardingService = ref.read(onboardingServiceProvider);
-
-      print('⏭️ STEP 1: Updating Calendly setup to false...');
-      // Mark Calendly as not setup
       final updatedState = await onboardingService.updateCalendlySetup(
         widget.currentState,
         false,
       );
-      print('✅ STEP 1 Complete: ${updatedState.toMap()}');
-
-      print('⏭️ STEP 2: Marking onboarding as complete...');
-      // Mark onboarding as complete (OnboardingFlowScreen will handle the actual completion)
       final completedState = updatedState.copyWith(
         isComplete: true,
         currentStep: updatedState.totalStepsForRole,
       );
-      print('📋 Final state: ${completedState.toMap()}');
-      print(
-        '✅ STEP 2 Complete: Passing to OnboardingFlowScreen for completion...',
-      );
-
       widget.onCalendlyCompleted(completedState);
     } catch (e) {
-      print('❌ SKIP CALENDLY ERROR: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -423,9 +463,21 @@ class _MentorCalendlyScreenState extends ConsumerState<MentorCalendlyScreen>
                           ),
                         ),
 
+                      // Check status button (shown after attempting OAuth)
+                      if (!_isCalendlySetup) ...[
+                        Spacers.h8,
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            onPressed: _isLoading ? null : _checkCalendlyStatus,
+                            child: const Text('Check connection status'),
+                          ),
+                        ),
+                      ],
+
                       // Skip button
                       if (!_isCalendlySetup) ...[
-                        Spacers.h12,
+                        Spacers.h8,
                         SizedBox(
                           width: double.infinity,
                           child: TextButton(

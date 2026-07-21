@@ -2,6 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CLIENT_ID</key>
+	<string>851556269464-n7544aam7uk8gveb18fiea86spes0a2e.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.851556269464-n7544aam7uk8gveb18fiea86spes0a2e</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>851556269464-sprru9s6tiovu944drsl4flr04gcbs30.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
 	<string>AIzaSyCP4Zxz_ogQW6LWt9KKG8-2j4bScxiEfVg</string>
 	<key>GCM_SENDER_ID</key>
@@ -9,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.example.connectlyApp</string>
+	<string>com.naimapps.connectly</string>
 	<key>PROJECT_ID</key>
 	<string>halal-social-prod</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,7 +31,7 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:851556269464:ios:a08fadd5d5787222d5bfed</string>
+	<string>1:851556269464:ios:31b68396314047b5d5bfed</string>
 	<key>DATABASE_URL</key>
 	<string>https://halal-social-prod-default-rtdb.firebaseio.com</string>
 </dict>

@@ -1,10 +1,8 @@
-/// Enum representing the types of services a mentor can offer
 enum ServiceType {
   virtualAppointments,
   chats,
   both;
 
-  /// Display name for the service type
   String get displayName {
     switch (this) {
       case ServiceType.virtualAppointments:
@@ -16,7 +14,6 @@ enum ServiceType {
     }
   }
 
-  /// Description for the service type
   String get description {
     switch (this) {
       case ServiceType.virtualAppointments:
@@ -28,7 +25,6 @@ enum ServiceType {
     }
   }
 
-  /// Icon name for the service type
   String get iconName {
     switch (this) {
       case ServiceType.virtualAppointments:
@@ -40,7 +36,6 @@ enum ServiceType {
     }
   }
 
-  /// Convert from string representation
   static ServiceType fromString(String value) {
     switch (value) {
       case 'virtualAppointments':
@@ -48,12 +43,8 @@ enum ServiceType {
       case 'chats':
         return ServiceType.chats;
       case 'both':
-        return ServiceType.both;
       default:
         return ServiceType.both;
     }
   }
-
-  /// Convert to string representation for storage
-  String toString() => name;
 }

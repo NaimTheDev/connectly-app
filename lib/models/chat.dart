@@ -1,23 +1,24 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
 import 'mentor.dart';
 
-/// Chat data model for representing a chat between a mentor and mentee.
-class Chat {
-  final String chatId;
-  final String mentorId;
-  final String menteeId;
-  final int timestamp;
-  final Mentor? mentor;
+part 'chat.freezed.dart';
+part 'chat.g.dart';
 
-  const Chat({
-    required this.chatId,
-    required this.mentorId,
-    required this.menteeId,
-    required this.timestamp,
-    this.mentor,
-  });
+@freezed
+abstract class Chat with _$Chat {
+  const Chat._();
 
-  /// Creates a Chat from a map and document ID.
-  factory Chat.fromMap(String id, Map<String, dynamic> data) {
+  const factory Chat({
+    required String chatId,
+    required String mentorId,
+    required String menteeId,
+    required int timestamp,
+    Mentor? mentor,
+  }) = _Chat;
+
+  factory Chat.fromJson(Map<String, dynamic> json) => _$ChatFromJson(json);
+
+  static Chat fromMap(String id, Map<String, dynamic> data) {
     return Chat(
       chatId: id,
       mentorId: data['mentorId'] as String? ?? '',
@@ -32,8 +33,9 @@ class Chat {
     );
   }
 
-  /// Converts the Chat to a map for Firestore storage.
-  Map<String, dynamic> toMap() {
-    return {'mentorId': mentorId, 'menteeId': menteeId, 'timestamp': timestamp};
-  }
+  Map<String, dynamic> toMap() => {
+    'mentorId': mentorId,
+    'menteeId': menteeId,
+    'timestamp': timestamp,
+  };
 }
