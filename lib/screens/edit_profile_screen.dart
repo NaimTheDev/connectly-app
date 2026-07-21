@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -104,7 +102,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         }
       }
     } catch (e) {
-      print('Error loading user data: $e');
+      debugPrint('Error loading user data: $e');
     }
   }
 
@@ -253,9 +251,12 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
       if (mounted) setState(() => _isUploadingImage = true);
 
+      // Read bytes rather than wrapping in a dart:io File so this path also
+      // builds and runs on web.
+      final bytes = await picked.readAsBytes();
       final url = await ref
           .read(storageServiceProvider)
-          .uploadProfileImage(_userId!, File(picked.path));
+          .uploadProfileImage(_userId!, bytes);
 
       await _persistImageUrl(url);
 

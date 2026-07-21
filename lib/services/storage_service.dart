@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:firebase_storage/firebase_storage.dart';
 
 /// Handles reading and writing user files in Firebase Storage.
@@ -15,9 +15,12 @@ class StorageService {
   /// The path is deterministic so a re-upload overwrites the previous image in
   /// place (no orphaned files). The returned URL carries a fresh token, so
   /// `NetworkImage` will not serve a stale cached image.
-  Future<String> uploadProfileImage(String uid, File file) async {
+  ///
+  /// Takes raw [bytes] and uploads via `putData` rather than `putFile` so this
+  /// works on web, where `dart:io`'s `File` is unavailable.
+  Future<String> uploadProfileImage(String uid, Uint8List bytes) async {
     final ref = _profileRef(uid);
-    await ref.putFile(file, SettableMetadata(contentType: 'image/jpeg'));
+    await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
     return ref.getDownloadURL();
   }
 

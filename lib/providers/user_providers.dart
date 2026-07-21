@@ -4,10 +4,16 @@ import '../models/app_user.dart';
 
 part 'user_providers.g.dart';
 
+/// Live view of `users/{uid}`.
+///
+/// Backed by a snapshot listener rather than a one-shot `get()` so screens
+/// already on the stack (e.g. Settings behind Edit Profile) reflect writes such
+/// as a changed avatar without the caller having to invalidate this provider.
 @riverpod
-Future<AppUser?> appUser(Ref ref, String uid) async {
-  final doc =
-      await FirebaseFirestore.instance.collection('users').doc(uid).get();
-  if (!doc.exists) return null;
-  return AppUser.fromMap(doc.id, doc.data()!);
+Stream<AppUser?> appUser(Ref ref, String uid) {
+  return FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .snapshots()
+      .map((doc) => doc.exists ? AppUser.fromMap(doc.id, doc.data()!) : null);
 }
