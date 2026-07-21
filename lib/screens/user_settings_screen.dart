@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_providers.dart';
+import '../providers/user_providers.dart';
 import '../theme/theme.dart';
 import '../widgets/spacers.dart';
 import 'edit_profile_screen.dart';
@@ -96,7 +97,7 @@ class UserSettingsScreen extends ConsumerWidget {
 }
 
 /// Profile section widget
-class _ProfileSection extends StatelessWidget {
+class _ProfileSection extends ConsumerWidget {
   final dynamic user;
   final AppBrand brand;
   final TextTheme textTheme;
@@ -108,7 +109,11 @@ class _ProfileSection extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Read the profile picture from the Firestore `imageUrl` field — the same
+    // source used everywhere else in the app — so an uploaded photo shows here.
+    final imageUrl = ref.watch(appUserProvider(user.uid)).value?.imageUrl;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -123,10 +128,8 @@ class _ProfileSection extends StatelessWidget {
           CircleAvatar(
             radius: 40,
             backgroundColor: brand.brand,
-            backgroundImage: user.photoURL != null
-                ? NetworkImage(user.photoURL!)
-                : null,
-            child: user.photoURL == null
+            backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
+            child: imageUrl == null
                 ? Text(
                     _getInitials(user.displayName ?? user.email ?? ''),
                     style: textTheme.headlineSmall?.copyWith(

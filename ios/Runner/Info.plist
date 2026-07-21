@@ -37,6 +37,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>GIDClientID</key>
 	<string>851556269464-n7544aam7uk8gveb18fiea86spes0a2e.apps.googleusercontent.com</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Connectly needs access to your photos to set your profile picture.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Connectly needs camera access to take a profile picture.</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>https</string>

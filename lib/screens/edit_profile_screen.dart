@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/app_user.dart';
 import '../models/service_type.dart';
 import '../providers/auth_providers.dart';
 import '../providers/onboarding_providers.dart';
+import '../providers/storage_providers.dart';
 import '../theme/theme.dart';
 import '../widgets/spacers.dart';
 
@@ -26,6 +28,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _chatPriceController = TextEditingController();
 
   bool _isLoading = false;
+  bool _isUploadingImage = false;
   String? _profileImageUrl;
   List<String> _selectedCategories = [];
   ServiceType? _selectedService;
@@ -99,7 +102,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         }
       }
     } catch (e) {
-      print('Error loading user data: $e');
+      debugPrint('Error loading user data: $e');
     }
   }
 
@@ -191,6 +194,127 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     }
   }
 
+  Future<void> _handleProfileImageTap() async {
+    final brand = Theme.of(context).extension<AppBrand>()!;
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(Icons.camera_alt_outlined, color: brand.brand),
+                title: const Text('Take Photo'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _pickAndUpload(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.photo_library_outlined, color: brand.brand),
+                title: const Text('Choose from Library'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _pickAndUpload(ImageSource.gallery);
+                },
+              ),
+              if (_profileImageUrl != null)
+                ListTile(
+                  leading: Icon(Icons.delete_outline, color: brand.danger),
+                  title: Text(
+                    'Remove Photo',
+                    style: TextStyle(color: brand.danger),
+                  ),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _removePhoto();
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickAndUpload(ImageSource source) async {
+    if (_userId == null) return;
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      if (picked == null) return; // user cancelled
+
+      if (mounted) setState(() => _isUploadingImage = true);
+
+      // Read bytes rather than wrapping in a dart:io File so this path also
+      // builds and runs on web.
+      final bytes = await picked.readAsBytes();
+      final url = await ref
+          .read(storageServiceProvider)
+          .uploadProfileImage(_userId!, bytes);
+
+      await _persistImageUrl(url);
+
+      if (mounted) setState(() => _profileImageUrl = url);
+    } catch (e) {
+      _showImageError('Failed to upload photo: $e');
+    } finally {
+      if (mounted) setState(() => _isUploadingImage = false);
+    }
+  }
+
+  Future<void> _removePhoto() async {
+    if (_userId == null) return;
+    try {
+      if (mounted) setState(() => _isUploadingImage = true);
+
+      await ref.read(storageServiceProvider).deleteProfileImage(_userId!);
+      await _persistImageUrl(null);
+
+      if (mounted) setState(() => _profileImageUrl = null);
+    } catch (e) {
+      _showImageError('Failed to remove photo: $e');
+    } finally {
+      if (mounted) setState(() => _isUploadingImage = false);
+    }
+  }
+
+  /// Persists only the `imageUrl` field immediately so a photo change is durable
+  /// even if the user leaves without pressing Save. Writes to the user doc, and
+  /// the mentor doc too when the user is a mentor.
+  Future<void> _persistImageUrl(String? url) async {
+    final batch = FirebaseFirestore.instance.batch();
+
+    final userRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(_userId!);
+    batch.set(userRef, {'imageUrl': url}, SetOptions(merge: true));
+
+    if (_userRole == UserRole.mentor) {
+      final mentorRef = FirebaseFirestore.instance
+          .collection('mentors')
+          .doc(_userId!);
+      batch.set(mentorRef, {'imageUrl': url}, SetOptions(merge: true));
+    }
+
+    await batch.commit();
+  }
+
+  void _showImageError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Theme.of(context).extension<AppBrand>()!.danger,
+      ),
+    );
+  }
+
   void _toggleCategory(String category) {
     setState(() {
       if (_selectedCategories.contains(category)) {
@@ -255,7 +379,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               // Profile Picture Section
               _ProfilePictureSection(
                 imageUrl: _profileImageUrl,
-                onImageChanged: (url) => setState(() => _profileImageUrl = url),
+                isUploading: _isUploadingImage,
+                onTap: _handleProfileImageTap,
                 brand: brand,
               ),
 
@@ -482,12 +607,14 @@ class _SectionHeader extends StatelessWidget {
 /// Profile picture section widget
 class _ProfilePictureSection extends StatelessWidget {
   final String? imageUrl;
-  final Function(String?) onImageChanged;
+  final bool isUploading;
+  final VoidCallback onTap;
   final AppBrand brand;
 
   const _ProfilePictureSection({
     required this.imageUrl,
-    required this.onImageChanged,
+    required this.isUploading,
+    required this.onTap,
     required this.brand,
   });
 
@@ -498,32 +625,48 @@ class _ProfilePictureSection extends StatelessWidget {
     return Center(
       child: Column(
         children: [
-          Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: brand.surfaceAlt,
-              border: Border.all(color: brand.softGrey, width: 2),
-              image: imageUrl != null
-                  ? DecorationImage(
-                      image: NetworkImage(imageUrl!),
-                      fit: BoxFit.cover,
-                    )
-                  : null,
-            ),
-            child: imageUrl == null
-                ? Icon(Icons.person_outline, size: 60, color: brand.graphite)
-                : null,
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: brand.surfaceAlt,
+                  border: Border.all(color: brand.softGrey, width: 2),
+                  image: imageUrl != null
+                      ? DecorationImage(
+                          image: NetworkImage(imageUrl!),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                ),
+                child: imageUrl == null
+                    ? Icon(
+                        Icons.person_outline,
+                        size: 60,
+                        color: brand.graphite,
+                      )
+                    : null,
+              ),
+              if (isUploading)
+                Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.black.withOpacity(0.4),
+                  ),
+                  child: Center(
+                    child: CircularProgressIndicator(color: brand.brand),
+                  ),
+                ),
+            ],
           ),
           Spacers.h12,
           TextButton.icon(
-            onPressed: () {
-              // TODO: Implement image picker
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Photo upload coming soon!')),
-              );
-            },
+            onPressed: isUploading ? null : onTap,
             icon: Icon(Icons.camera_alt_outlined, color: brand.brand),
             label: Text(
               imageUrl == null ? 'Add Photo' : 'Change Photo',
